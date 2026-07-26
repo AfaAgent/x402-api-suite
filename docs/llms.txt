@@ -7,7 +7,7 @@ A collection of 43 production APIs that AI agents can call and pay for per-reque
 ## Base URL
 
 ```
-https://YOUR_GATEWAY_URL
+https://fresh-sloth-0.loca.lt
 ```
 
 ## Payment Protocol
