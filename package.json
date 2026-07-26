@@ -1,0 +1,18 @@
+{
+  "name": "afaagent-x402-api",
+  "version": "1.0.0",
+  "description": "AfaAgent x402 API Suite - 10 utility APIs with pay-per-call USDC on Base",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "@goldbean/x402-sdk": "^1.0.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
