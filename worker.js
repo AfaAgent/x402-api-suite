@@ -61,32 +61,28 @@ export default {
     }
     
     if (path === '/' || path === '') {
-      return new Response(getLandingPage(), {
-        headers: { 'Content-Type': 'text/html; charset=utf-8', ...corsHeaders }
-      });
-    }
-    
-    if (path === '/test-fetch') {
-      const results = {};
-      const apis = [
-        { name: 'binance', url: 'https://api.binance.com/api/v3/ping' },
-        { name: 'coingecko', url: 'https://api.coingecko.com/api/v3/ping' },
-        { name: 'cloudflare-eth', url: 'https://cloudflare-eth.com', method: 'POST', body: '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}' },
-        { name: 'base-rpc', url: 'https://mainnet.base.org', method: 'POST', body: '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}' },
-        { name: 'coinbase', url: 'https://api.coinbase.com/v2/time' },
-      ];
-      for (const api of apis) {
-        try {
-          const opts = { headers: { 'Content-Type': 'application/json', 'User-Agent': 'AfaAgent-x402/1.0' } };
-          if (api.method) { opts.method = api.method; opts.body = api.body; }
-          const r = await fetch(api.url, opts);
-          const text = await r.text();
-          results[api.name] = { status: r.status, ok: r.ok, body: text.substring(0, 200) };
-        } catch (e) {
-          results[api.name] = { error: e.message };
-        }
+      const accept = request.headers.get('Accept') || '';
+      const linkHeader = '</.well-known/x402>; rel="x402-discovery", <./openapi.json>; rel="service-desc", <./llms.txt>; rel="llms-txt", <./mcp>; rel="mcp"';
+      
+      // Return JSON for API clients, HTML for browsers
+      if (accept.includes('application/json') || accept.includes('application/x402+json')) {
+        return json({ 
+          name: 'AfaAgent x402 API Suite',
+          version: '4.0.0',
+          endpoints: 43,
+          description: '43 production-grade APIs across DeFi, wallet security, AI tools, developer utilities, SEO, and crypto analytics. All pay-per-call USDC on Base via x402 protocol.',
+          discovery: '/.well-known/x402',
+          docs: '/.well-known/x402',
+          openapi: '/openapi.json',
+          health: '/health',
+          llms_txt: '/llms.txt',
+          agents_json: '/agents.json',
+          mcp: '/mcp'
+        }, { ...corsHeaders, 'Link': linkHeader });
       }
-      return json(results, corsHeaders);
+      return new Response(getLandingPage(), {
+        headers: { 'Content-Type': 'text/html; charset=utf-8', 'Link': linkHeader, ...corsHeaders }
+      });
     }
     
     return json({ error: 'Not found' }, { ...corsHeaders, status: 404 });
