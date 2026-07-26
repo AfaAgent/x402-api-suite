@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: x402-api-suite
+    runtime: node
+    plan: free
+    buildCommand: npm ci --only=production
+    startCommand: node server.js
+    envVars:
+      - key: PORT
+        value: "10000"
+      - key: NODE_ENV
+        value: production
+    autoDeploy: true

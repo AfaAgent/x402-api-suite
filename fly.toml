@@ -1,0 +1,17 @@
+app = "x402-api-suite"
+primary_region = "iad"
+
+[build]
+  builder = "heroku/buildpacks:20"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+[[env]]
+  key = "NODE_ENV"
+  value = "production"
