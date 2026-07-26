@@ -6,7 +6,7 @@ export default {
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, X-Payment',
+      'Access-Control-Allow-Headers': 'Content-Type, X-Payment, Authorization',
     };
     
     if (request.method === 'OPTIONS') {
@@ -14,25 +14,29 @@ export default {
     }
     
     if (path === '/health' || path === '/api/v1/health') {
-      return json({ status: 'ok', services: 43, timestamp: Date.now() }, corsHeaders);
+      return json({ status: 'ok', services: 43, version: '4.0.0', timestamp: Date.now() }, corsHeaders);
     }
     
-    if (path === '/.well-known/x402') {
+    if (path === '/.well-known/x402' || path === '/.well-known/x402.json') {
       return json(getWellKnown(), corsHeaders);
     }
     
     if (path === '/openapi.json') {
-      return json(getOpenAPI(), corsHeaders);
+      return json(getOpenAPI(url.origin), corsHeaders);
     }
     
     if (path === '/llms.txt') {
       return new Response(LLMS_TXT, { 
-        headers: { 'Content-Type': 'text/plain', ...corsHeaders } 
+        headers: { 'Content-Type': 'text/plain; charset=utf-8', ...corsHeaders } 
       });
     }
     
     if (path === '/agents.json') {
-      return json(getAgentsJson(), corsHeaders);
+      return json(getAgentsJson(url.origin), corsHeaders);
+    }
+    
+    if (path === '/v1/x402/rails') {
+      return json(getRails(), corsHeaders);
     }
     
     if (path.startsWith('/api/v1/')) {
@@ -40,62 +44,376 @@ export default {
       return handleApiCall(endpoint, request, corsHeaders);
     }
     
-    return json({ 
-      name: 'AfaAgent x402 API Suite',
-      version: '4.0.0',
-      endpoints: 43,
-      docs: '/.well-known/x402',
-      health: '/health'
-    }, corsHeaders);
+    if (path === '/' || path === '') {
+      return json({ 
+        name: 'AfaAgent x402 API Suite',
+        version: '4.0.0',
+        endpoints: 43,
+        description: '43 production-grade APIs across DeFi, wallet security, AI tools, developer utilities, SEO, and crypto analytics. All pay-per-call USDC on Base via x402 protocol.',
+        docs: '/.well-known/x402',
+        openapi: '/openapi.json',
+        health: '/health',
+        llms_txt: '/llms.txt',
+        agents_json: '/agents.json'
+      }, corsHeaders);
+    }
+    
+    return json({ error: 'Not found' }, { ...corsHeaders, status: 404 });
   }
 };
 
-const WALLET = '0x0c1fa40d4600081270c931811587d68af18b0b94';
+const WALLET = '0x7B8401b5B4ee319aa47DC5F12b869e5Be460A9B2';
 const CHAIN = 'eip155:8453';
 const CURRENCY = 'USDC';
+const USDC_CONTRACT = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 
 const PRICES = {
-  'crypto-prices': '0.05', 'gas-tracker': '0.03', 'wallet-risk': '0.85',
-  'token-screener': '0.30', 'portfolio-tracker': '0.99', 'yield-calculator': '0.50',
-  'gas-estimator': '0.20', 'nft-metadata': '0.30', 'swap-routing': '0.99',
-  'transaction-simulator': '0.85', 'smart-contract-audit': '9.99',
-  'rug-detect': '4.99', 'defi-strategy': '19.99', 'portfolio-rebalancer': '14.99',
-  'token-launch-analysis': '7.99', 'summarize': '0.05', 'sentiment': '0.03',
-  'keyword-extractor': '0.03', 'language-detect': '0.02', 'text-complexity': '0.05',
-  'entity-extractor': '0.12', 'text-rewrite': '0.10', 'headline-generator': '0.08',
-  'seo-meta': '0.15', 'markdown-summary': '0.04', 'qrcode': '0.02',
-  'json-format': '0.01', 'password-strength': '0.02', 'markdown-to-html': '0.02',
-  'base64-encode': '0.01', 'color-palette': '0.02', 'regex-builder': '0.10',
-  'hash-generator': '0.03', 'uuid-generator': '0.01', 'timestamp-converter': '0.02',
-  'diff-checker': '0.05', 'ip-geolocation': '0.03', 'url-shortener': '0.01',
-  'user-agent-parser': '0.02', 'currency-converter': '0.05',
-  'json-schema-validator': '0.05', 'favicon-generator': '0.03',
-  'domains-available': '0.04'
+  'crypto-prices': { amount: '0.05', desc: 'Crypto price data — real-time prices for 1000+ tokens' },
+  'gas-tracker': { amount: '0.03', desc: 'Gas price tracker — Ethereum, Base, Polygon gas prices' },
+  'wallet-risk': { amount: '0.85', desc: 'Wallet risk score — security analysis for any EVM address' },
+  'token-screener': { amount: '0.30', desc: 'Token screener — risk & fundamentals for any ERC20 token' },
+  'portfolio-tracker': { amount: '0.99', desc: 'Portfolio analyzer — balance & P&L for any wallet' },
+  'yield-calculator': { amount: '0.50', desc: 'DeFi yield calculator — APY/APR for any investment amount' },
+  'gas-estimator': { amount: '0.20', desc: 'Transaction gas estimator — calculate exact gas cost in USD' },
+  'nft-metadata': { amount: '0.30', desc: 'NFT metadata validator — parse & validate ERC721/ERC1155 metadata' },
+  'swap-routing': { amount: '0.99', desc: 'DEX swap router — find best price across DEXes' },
+  'transaction-simulator': { amount: '0.85', desc: 'Transaction simulator — predict tx outcome before signing' },
+  'smart-contract-audit': { amount: '9.99', desc: 'Smart contract security audit — detect vulnerabilities, risks, and issues in any contract code' },
+  'rug-detect': { amount: '4.99', desc: 'Rug pull detector — analyze any token contract for scam risk signals' },
+  'defi-strategy': { amount: '19.99', desc: 'DeFi strategy builder — personalized yield farming strategy with risk assessment' },
+  'portfolio-rebalancer': { amount: '14.99', desc: 'Portfolio rebalancing — optimal allocation across tokens and protocols' },
+  'token-launch-analysis': { amount: '7.99', desc: 'Token launch analysis — evaluate tokenomics, team, risks, and potential' },
+  'summarize': { amount: '0.05', desc: 'Text summarization — concise summary of any text' },
+  'sentiment': { amount: '0.03', desc: 'Sentiment analysis — positive/negative/neutral score' },
+  'keyword-extractor': { amount: '0.03', desc: 'Keyword extraction — top keywords from any text' },
+  'language-detect': { amount: '0.02', desc: 'Language detection — identify language of text' },
+  'text-complexity': { amount: '0.05', desc: 'Readability score — Flesch-Kincaid, Gunning Fog, and more' },
+  'entity-extractor': { amount: '0.12', desc: 'Entity extraction — people, places, orgs, dates from text' },
+  'text-rewrite': { amount: '0.10', desc: 'Text rewriter — paraphrase and rewrite text in multiple styles' },
+  'headline-generator': { amount: '0.08', desc: 'Headline generator — 10+ catchy headlines for any topic' },
+  'seo-meta': { amount: '0.15', desc: 'SEO meta tag generator — title, description, OG tags from content' },
+  'markdown-summary': { amount: '0.04', desc: 'Markdown summarizer — extract structure, headings, key points' },
+  'qrcode': { amount: '0.02', desc: 'QR code generator — custom QR with size and color options' },
+  'json-format': { amount: '0.01', desc: 'JSON formatter — beautify, minify, validate JSON' },
+  'password-strength': { amount: '0.02', desc: 'Password strength checker — detailed security analysis' },
+  'markdown-to-html': { amount: '0.02', desc: 'Markdown to HTML converter' },
+  'base64-encode': { amount: '0.01', desc: 'Base64 encode and decode' },
+  'color-palette': { amount: '0.02', desc: 'Color palette generator from image or hex color' },
+  'regex-builder': { amount: '0.10', desc: 'Regex builder — generate and test regular expressions' },
+  'hash-generator': { amount: '0.03', desc: 'Hash generator — MD5, SHA1, SHA256, SHA512' },
+  'uuid-generator': { amount: '0.01', desc: 'UUID generator — v4 UUIDs in bulk' },
+  'timestamp-converter': { amount: '0.02', desc: 'Timestamp converter — Unix, ISO, relative time formats' },
+  'diff-checker': { amount: '0.05', desc: 'Diff checker — compare two texts and show differences' },
+  'ip-geolocation': { amount: '0.03', desc: 'IP geolocation — country, city, timezone for any IP address' },
+  'url-shortener': { amount: '0.01', desc: 'URL shortener — create short links with custom aliases' },
+  'user-agent-parser': { amount: '0.02', desc: 'User agent parser — detect browser, OS, device from UA string' },
+  'currency-converter': { amount: '0.05', desc: 'Currency converter — real-time exchange rates for 150+ fiat' },
+  'json-schema-validator': { amount: '0.05', desc: 'JSON schema validator — validate any JSON against a schema' },
+  'favicon-generator': { amount: '0.03', desc: 'Favicon generator — create favicon SVG from text or initials' },
+  'domains-available': { amount: '0.04', desc: 'Domain name checker — check availability and suggest alternatives' },
 };
 
+const SERVICE_META = {
+  'summarize': {
+    input: { text: 'The quick brown fox jumps over the lazy dog. This is a sample text for summarization testing.', max_length: 200 },
+    inputSchema: { type: 'object', properties: { text: { type: 'string' }, max_length: { type: 'number' } }, required: ['text'] },
+    output: { summary: 'The quick brown fox jumps over the lazy dog.', original_length: 95, summary_length: 43, compression_ratio: 0.45, sentences_extracted: 2 }
+  },
+  'sentiment': {
+    input: { text: 'I absolutely love this product, it works amazing and the quality is fantastic!' },
+    inputSchema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] },
+    output: { score: 0.8, label: 'positive', positive_count: 5, negative_count: 0, confidence: 0.8 }
+  },
+  'qrcode': {
+    input: { data: 'https://afaagent.ai', size: 256, color: '#000000', background: '#ffffff' },
+    inputSchema: { type: 'object', properties: { data: { type: 'string' }, size: { type: 'number' }, color: { type: 'string' }, background: { type: 'string' } }, required: ['data'] },
+    output: { data: 'https://afaagent.ai', size: 256, format: 'svg', svg: '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 25 25">...</svg>' }
+  },
+  'json-format': {
+    input: { json: '{"name":"test","value":123}', action: 'beautify', indent: 2 },
+    inputSchema: { type: 'object', properties: { json: { type: 'string' }, action: { type: 'string', enum: ['beautify', 'minify', 'validate'] }, indent: { type: 'number' } }, required: ['json'] },
+    output: { action: 'beautify', result: '{\n  "name": "test",\n  "value": 123\n}', valid: true, size: 32 }
+  },
+  'password-strength': {
+    input: { password: 'MyP@ssw0rd!2024' },
+    inputSchema: { type: 'object', properties: { password: { type: 'string' } }, required: ['password'] },
+    output: { score: 85, strength: 'very_strong', checks_passed: ['Length >= 8', 'Uppercase letters', 'Lowercase letters', 'Numbers', 'Special characters'], length: 14, suggestions: '' }
+  },
+  'keyword-extractor': {
+    input: { text: 'Artificial intelligence and machine learning are transforming software development practices worldwide.', limit: 5 },
+    inputSchema: { type: 'object', properties: { text: { type: 'string' }, limit: { type: 'number' } }, required: ['text'] },
+    output: { keywords: [{ word: 'artificial', count: 1, score: 0.1 }, { word: 'intelligence', count: 1, score: 0.1 }], total_words: 10, unique_keywords: 8 }
+  },
+  'language-detect': {
+    input: { text: 'Bonjour, comment allez-vous aujourdhui?' },
+    inputSchema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] },
+    output: { language: 'french', confidence: 0.92, detected_languages: ['english', 'russian', 'spanish', 'french', 'german'] }
+  },
+  'markdown-to-html': {
+    input: { markdown: '# Hello\n\nThis is **bold** text.' },
+    inputSchema: { type: 'object', properties: { markdown: { type: 'string' } }, required: ['markdown'] },
+    output: { html: '<h1>Hello</h1><p>This is <strong>bold</strong> text.</p>', markdown: '# Hello\n\nThis is **bold** text.' }
+  },
+  'base64-encode': {
+    input: { data: 'Hello, World!', action: 'encode' },
+    inputSchema: { type: 'object', properties: { data: { type: 'string' }, action: { type: 'string', enum: ['encode', 'decode'] } }, required: ['data', 'action'] },
+    output: { action: 'encode', result: 'SGVsbG8sIFdvcmxkIQ==', original: 'Hello, World!' }
+  },
+  'color-palette': {
+    input: { base_color: '3b82f6', count: 5, scheme: 'complementary' },
+    inputSchema: { type: 'object', properties: { base_color: { type: 'string' }, count: { type: 'number' }, scheme: { type: 'string' } }, required: ['base_color'] },
+    output: { base_color: '3b82f6', scheme: 'complementary', count: 5, colors: ['3b82f6', '60a5fa', '93c5fd', 'bfdbfe', 'dbeafe'] }
+  },
+  'crypto-prices': {
+    input: { tokens: ['bitcoin', 'ethereum', 'solana'] },
+    inputSchema: { type: 'object', properties: { tokens: { type: 'array', items: { type: 'string' } } }, required: ['tokens'] },
+    output: { bitcoin: { usd: 67234.52, usd_24h_change: 2.34 }, ethereum: { usd: 3421.18, usd_24h_change: -1.23 }, solana: { usd: 142.56, usd_24h_change: 5.67 } }
+  },
+  'gas-tracker': {
+    input: { network: 'ethereum' },
+    inputSchema: { type: 'object', properties: { network: { type: 'string', enum: ['ethereum', 'base', 'polygon', 'arbitrum'] } }, required: ['network'] },
+    output: { network: 'ethereum', slow: { gwei: 12, usd: 0.25 }, standard: { gwei: 24, usd: 0.50 }, fast: { gwei: 48, usd: 1.00 }, base_fee: 22.5 }
+  },
+  'wallet-risk': {
+    input: { address: '0x742d35Cc6634C0532925a3b844Bc9e7595f7AAA0' },
+    inputSchema: { type: 'object', properties: { address: { type: 'string' } }, required: ['address'] },
+    output: { address: '0x742d35Cc6634C0532925a3b844Bc9e7595f7AAA0', risk_score: 25, risk_level: 'low', factors: ['No known scams', 'Active transactions', 'Diversified portfolio'], last_checked: '2026-07-27T12:00:00.000Z' }
+  },
+  'token-screener': {
+    input: { contract_address: '0x4200000000000000000000000000000000000006', chain: 'base' },
+    inputSchema: { type: 'object', properties: { contract_address: { type: 'string' }, chain: { type: 'string' } }, required: ['contract_address'] },
+    output: { address: '0x4200000000000000000000000000000000000006', chain: 'base', risk_score: 15, risk_level: 'low', price_usd: 3421.18, market_cap: 1200000000, holders: 85000, risk_factors: [], positive_factors: ['Active development', 'Growing community'] }
+  },
+  'portfolio-tracker': {
+    input: { address: '0x742d35Cc6634C0532925a3b844Bc9e7595f7AAA0', chain: 'ethereum' },
+    inputSchema: { type: 'object', properties: { address: { type: 'string' }, chain: { type: 'string' } }, required: ['address'] },
+    output: { address: '0x742d35Cc6634C0532925a3b844Bc9e7595f7AAA0', chain: 'ethereum', total_value_usd: 25432.50, total_profit_usd: 3421.18, total_profit_pct: 15.54, tokens: [{ symbol: 'ETH', balance: 5.2, value_usd: 17790.14, pnl_pct: 22.3 }, { symbol: 'USDC', balance: 5000, value_usd: 5000, pnl_pct: 0.0 }], last_updated: '2026-07-27T12:00:00.000Z' }
+  },
+  'yield-calculator': {
+    input: { principal: 1000, apy: 5, days: 365 },
+    inputSchema: { type: 'object', properties: { principal: { type: 'number' }, apy: { type: 'number' }, days: { type: 'number' } }, required: ['principal', 'apy'] },
+    output: { principal: 1000, apy: 5, days: 365, final_amount: 1051.27, total_earned: 51.27, daily_earnings: 0.14, apy_effective: 5.13 }
+  },
+  'gas-estimator': {
+    input: { gas_limit: 21000, gas_price_gwei: 24, network: 'ethereum' },
+    inputSchema: { type: 'object', properties: { gas_limit: { type: 'number' }, gas_price_gwei: { type: 'number' }, network: { type: 'string' } }, required: ['gas_limit', 'gas_price_gwei'] },
+    output: { gas_limit: 21000, gas_price_gwei: 24, gas_cost_eth: 0.000504, gas_cost_usd: 1.72, eth_price: 3421.18, network: 'ethereum' }
+  },
+  'nft-metadata': {
+    input: { contract_address: '0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D', token_id: '1' },
+    inputSchema: { type: 'object', properties: { contract_address: { type: 'string' }, token_id: { type: 'string' } }, required: ['contract_address', 'token_id'] },
+    output: { valid: true, name: 'Example NFT', description: 'An example NFT', image: 'ipfs://Qm...', attributes: [{ trait_type: 'Background', value: 'Blue' }, { trait_type: 'Eyes', value: 'Green' }], standard: 'ERC721' }
+  },
+  'swap-routing': {
+    input: { from_token: 'ETH', to_token: 'USDC', amount: '1', chain: 'base', slippage: 0.5 },
+    inputSchema: { type: 'object', properties: { from_token: { type: 'string' }, to_token: { type: 'string' }, amount: { type: 'string' }, chain: { type: 'string' }, slippage: { type: 'number' } }, required: ['from_token', 'to_token', 'amount'] },
+    output: { from_token: 'ETH', to_token: 'USDC', amount: '1', best_route: 'Uniswap V3', expected_output: '3421.50', price_impact: 0.12, fee_usd: 3.42, routes: [{ dex: 'Uniswap V3', output: '3421.50', fee: '0.3%' }] }
+  },
+  'transaction-simulator': {
+    input: { from: '0x742d35Cc6634C0532925a3b844Bc9e7595f7AAA0', to: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', value: '0', data: '0x...', network: 'ethereum' },
+    inputSchema: { type: 'object', properties: { from: { type: 'string' }, to: { type: 'string' }, value: { type: 'string' }, data: { type: 'string' }, network: { type: 'string' } }, required: ['from', 'to'] },
+    output: { from: '0x742d35Cc6634C0532925a3b844Bc9e7595f7AAA0', to: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', risk_level: 'low', warnings: [], function: 'transfer', expected_state_change: 'Token transfer detected', gas_estimate: 65000 }
+  },
+  'smart-contract-audit': {
+    input: { code: 'contract MyToken { ... }', contract_type: 'solidity' },
+    inputSchema: { type: 'object', properties: { code: { type: 'string' }, contract_type: { type: 'string', enum: ['solidity', 'vyper', 'rust'] } }, required: ['code'] },
+    output: { score: 78, severity: 'medium', issues_found: 5, vulnerabilities: [{ severity: 'high', title: 'Reentrancy risk', description: 'Potential reentrancy in withdrawal function', line: 42 }], recommendations: ['Use OpenZeppelin ReentrancyGuard', 'Use SafeMath for arithmetic'], contract_type: 'solidity', lines_analyzed: 250, audit_time: '2.3s' }
+  },
+  'rug-detect': {
+    input: { token_address: '0x...', chain: 'ethereum' },
+    inputSchema: { type: 'object', properties: { token_address: { type: 'string' }, chain: { type: 'string' } }, required: ['token_address'] },
+    output: { risk_score: 35, risk_level: 'low', signals: { locked_liquidity: true, mint_authority_revoked: true, team_doxxed: false, audit_verified: false, honeypot_test: 'passed', rug_pull_history: 'none' }, overall_assessment: 'Low risk of rug pull', recommendations: ['Check team background', 'Verify audit report'] }
+  },
+  'defi-strategy': {
+    input: { capital: 10000, risk_tolerance: 'medium', preferred_chains: ['ethereum', 'base'] },
+    inputSchema: { type: 'object', properties: { capital: { type: 'number' }, risk_tolerance: { type: 'string', enum: ['conservative', 'medium', 'aggressive'] }, preferred_chains: { type: 'array', items: { type: 'string' } } }, required: ['capital', 'risk_tolerance'] },
+    output: { capital: 10000, risk_tolerance: 'medium', expected_apy: 12.5, expected_monthly_earnings: 104.17, allocation: [{ protocol: 'Aave', allocation_pct: 30, apy: 4.5, risk: 'low' }], preferred_chains: ['ethereum', 'base'], strategy_summary: 'Conservative yield farming with blue-chip protocols' }
+  },
+  'portfolio-rebalancer': {
+    input: { portfolio: { eth: 0.6, usdc: 0.3, btc: 0.1 }, target_risk: 'moderate' },
+    inputSchema: { type: 'object', properties: { portfolio: { type: 'object' }, target_risk: { type: 'string', enum: ['conservative', 'moderate', 'aggressive'] } }, required: ['portfolio', 'target_risk'] },
+    output: { current_portfolio: { eth: 0.6, usdc: 0.3, btc: 0.1 }, target_risk: 'moderate', recommended_allocation: { btc: { pct: 30, reason: 'Blue-chip store of value' }, eth: { pct: 35, reason: 'Ecosystem growth' }, stablecoins: { pct: 25, reason: 'Stability and yield' }, alts: { pct: 10, reason: 'High growth potential' } }, rebalancing_steps: ['Sell 5% ETH for BTC', 'Convert 5% ETH to stablecoins'], expected_volatility: 'medium', expected_returns: { conservative: 8, moderate: 15, aggressive: 25 } }
+  },
+  'token-launch-analysis': {
+    input: { token_address: '0x...', chain: 'ethereum' },
+    inputSchema: { type: 'object', properties: { token_address: { type: 'string' }, chain: { type: 'string' } }, required: ['token_address'] },
+    output: { overall_score: 62, tokenomics_score: 55, team_score: 70, community_score: 65, risk_level: 'medium', strengths: ['Strong community growth', 'Experienced team'], weaknesses: ['High team allocation', 'Unclear utility'], recommendation: 'Wait for lock-up schedule details', fair_launch: false, presale_vesting: '6 months cliff + 12 months linear', team_allocation_pct: 20, community_allocation_pct: 50 }
+  },
+  'text-complexity': {
+    input: { text: 'The cat sat on the mat. It was a sunny day.' },
+    inputSchema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] },
+    output: { flesch_kincaid: 95.0, reading_level: '5th grade', word_count: 13, sentence_count: 2, avg_words_per_sentence: 6.5, syllable_count: 15 }
+  },
+  'text-rewrite': {
+    input: { text: 'The cat sat on the mat.', style: 'formal' },
+    inputSchema: { type: 'object', properties: { text: { type: 'string' }, style: { type: 'string', enum: ['formal', 'casual', 'academic', 'creative'] } }, required: ['text'] },
+    output: { original: 'The cat sat on the mat.', rewritten: 'The feline was positioned upon the floor covering.', style: 'formal', changes: true }
+  },
+  'headline-generator': {
+    input: { topic: 'AI tools', count: 10, style: 'general' },
+    inputSchema: { type: 'object', properties: { topic: { type: 'string' }, count: { type: 'number' }, style: { type: 'string' } }, required: ['topic'] },
+    output: { topic: 'AI tools', count: 10, headlines: ['The Ultimate Guide to AI tools in 2026', 'AI tools: Everything You Need to Know'], style: 'general' }
+  },
+  'seo-meta': {
+    input: { content: 'This is an example page about digital marketing and SEO best practices for 2026.', url: 'https://example.com' },
+    inputSchema: { type: 'object', properties: { content: { type: 'string' }, url: { type: 'string' } }, required: ['content'] },
+    output: { title: 'This is an example page about digital...', description: 'This is an example page about digital marketing and SEO best practices...', og_title: 'This is an example page about digital...', og_description: 'This is an example page about digital marketing and SEO best practices...', keywords: 'example, page, about, digital, marketing, best, practices, 2026', title_length: 60, description_length: 160, suggestions: 'Title length OK' }
+  },
+  'entity-extractor': {
+    input: { text: 'Apple Inc. was founded by Steve Jobs in Cupertino, California on April 1, 1976.' },
+    inputSchema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] },
+    output: { entities: { people: [], organizations: ['Inc'], locations: [], dates: ['April 1, 1976'] }, total: 2, text_length: 78 }
+  },
+  'regex-builder': {
+    input: { description: 'email address pattern', test_string: 'test@example.com', flags: 'g' },
+    inputSchema: { type: 'object', properties: { description: { type: 'string' }, test_string: { type: 'string' }, flags: { type: 'string' } }, required: ['description'] },
+    output: { pattern: '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}', description: 'email address pattern', flags: 'g', test_result: true, examples: [] }
+  },
+  'hash-generator': {
+    input: { text: 'Hello, World!', algorithm: 'sha256' },
+    inputSchema: { type: 'object', properties: { text: { type: 'string' }, algorithm: { type: 'string', enum: ['sha1', 'sha256', 'sha512'] } }, required: ['text'] },
+    output: { algorithm: 'sha256', hash: 'dffd6021bb2bd5b0af676290809ec3a53191dd81c7f70a4b28688a362182986f' }
+  },
+  'uuid-generator': {
+    input: { count: 5, version: 'v4' },
+    inputSchema: { type: 'object', properties: { count: { type: 'number' }, version: { type: 'string', enum: ['v4'] } }, required: ['count', 'version'] },
+    output: { uuids: ['550e8400-e29b-41d4-a716-446655440000'], count: 5, version: 'v4' }
+  },
+  'timestamp-converter': {
+    input: { timestamp: 1753689600000 },
+    inputSchema: { type: 'object', properties: { timestamp: { type: 'number' } }, required: ['timestamp'] },
+    output: { unix: 1753689600, unix_ms: 1753689600000, iso: '2026-07-27T12:00:00.000Z', utc: 'Mon, 27 Jul 2026 12:00:00 GMT', local: 'Mon Jul 27 2026 12:00:00 GMT+0000', relative: 'just now' }
+  },
+  'diff-checker': {
+    input: { text1: 'Hello World\nHow are you?', text2: 'Hello Universe\nHow are you?', format: 'unified' },
+    inputSchema: { type: 'object', properties: { text1: { type: 'string' }, text2: { type: 'string' }, format: { type: 'string' } }, required: ['text1', 'text2'] },
+    output: { diff: [{ type: 'removed', line: 1, content: 'Hello World' }, { type: 'added', line: 1, content: 'Hello Universe' }, { type: 'unchanged', line: 2, content: 'How are you?' }], format: 'unified', additions: 1, deletions: 1, total_lines: 2 }
+  },
+  'ip-geolocation': {
+    input: { ip: '8.8.8.8' },
+    inputSchema: { type: 'object', properties: { ip: { type: 'string' } }, required: ['ip'] },
+    output: { ip: '8.8.8.8', country: 'United States', country_code: 'US', city: 'Mountain View', region: 'California', timezone: 'America/Los_Angeles', latitude: 37.386, longitude: -122.0838, isp: 'Google LLC', accuracy: 1000 }
+  },
+  'url-shortener': {
+    input: { url: 'https://example.com/very/long/path', alias: 'abc123' },
+    inputSchema: { type: 'object', properties: { url: { type: 'string' }, alias: { type: 'string' } }, required: ['url'] },
+    output: { original_url: 'https://example.com/very/long/path', short_url: 'https://s.lc/abc123', alias: 'abc123', created_at: '2026-07-27T12:00:00.000Z' }
+  },
+  'user-agent-parser': {
+    input: { ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+    inputSchema: { type: 'object', properties: { ua: { type: 'string' } }, required: ['ua'] },
+    output: { browser: 'Chrome', browser_version: '120', os: 'Windows', os_version: '10.0', is_mobile: false, ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' }
+  },
+  'currency-converter': {
+    input: { amount: 1, from: 'USD', to: 'EUR' },
+    inputSchema: { type: 'object', properties: { amount: { type: 'number' }, from: { type: 'string' }, to: { type: 'string' } }, required: ['amount', 'from', 'to'] },
+    output: { amount: 1, from: 'USD', to: 'EUR', result: '0.9200', rate: '0.920000', last_updated: '2026-07-27T12:00:00.000Z' }
+  },
+  'markdown-summary': {
+    input: { markdown: '# Title\n\n## Section 1\n\nContent here.\n\n## Section 2\n\nMore content.' },
+    inputSchema: { type: 'object', properties: { markdown: { type: 'string' } }, required: ['markdown'] },
+    output: { headings: [{ level: 1, text: 'Title' }, { level: 2, text: 'Section 1' }, { level: 2, text: 'Section 2' }], structure: '# Title\n## Section 1\n## Section 2', word_count: 10, heading_count: 3, sections: 2 }
+  },
+  'json-schema-validator': {
+    input: { json: { name: 'test', age: 25 }, schema: { type: 'object', properties: { name: { type: 'string' }, age: { type: 'number' } }, required: ['name'] } },
+    inputSchema: { type: 'object', properties: { json: { type: 'object' }, schema: { type: 'object' } }, required: ['json', 'schema'] },
+    output: { valid: true, errors: [], validated_at: '2026-07-27T12:00:00.000Z' }
+  },
+  'favicon-generator': {
+    input: { text: 'AA', background: '3b82f6', color: 'ffffff', size: 64 },
+    inputSchema: { type: 'object', properties: { text: { type: 'string' }, background: { type: 'string' }, color: { type: 'string' }, size: { type: 'number' } }, required: ['text'] },
+    output: { text: 'AA', background: '3b82f6', color: 'ffffff', size: 64, format: 'svg', svg: '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#3b82f6"/><text x="32" y="42" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" font-weight="bold" fill="#ffffff">AA</text></svg>' }
+  },
+  'domains-available': {
+    input: { domain: 'example', tlds: ['com', 'net', 'org', 'io', 'dev', 'xyz'] },
+    inputSchema: { type: 'object', properties: { domain: { type: 'string' }, tlds: { type: 'array', items: { type: 'string' } } }, required: ['domain'] },
+    output: { domain: 'example', tlds: ['com', 'net', 'org', 'io', 'dev', 'xyz'], results: { com: { available: false, price: 10, domain: 'example.com' }, net: { available: false, price: 10, domain: 'example.net' } }, suggestions: ['example-net.com', 'example-org.com'] }
+  },
+};
+
+function getMeta(endpoint) {
+  return SERVICE_META[endpoint] || {
+    input: {},
+    inputSchema: { type: 'object', properties: {} },
+    output: { success: true }
+  };
+}
+
 function json(data, extraHeaders = {}) {
-  return new Response(JSON.stringify(data), {
-    headers: { 'Content-Type': 'application/json', ...extraHeaders }
+  return new Response(JSON.stringify(data, null, 2), {
+    headers: { 'Content-Type': 'application/json; charset=utf-8', ...extraHeaders }
   });
 }
 
-function paymentRequired(endpoint) {
-  const price = PRICES[endpoint] || '0.01';
-  return new Response(JSON.stringify({
-    error: 'Payment Required',
-    price,
+function paymentRequired(endpoint, requestUrl) {
+  const priceInfo = PRICES[endpoint] || { amount: '0.01', desc: endpoint };
+  const meta = getMeta(endpoint);
+  
+  const amount = Math.round(parseFloat(priceInfo.amount) * 1e6).toString();
+  const url = requestUrl || '';
+  
+  const body = {
+    x402Version: 2,
+    error: 'payment_required',
+    accepts: [
+      {
+        scheme: 'exact',
+        network: CHAIN,
+        asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+        amount: amount,
+        payTo: WALLET,
+        maxTimeoutSeconds: 300,
+        extra: {
+          token: 'USDC',
+          decimals: 6,
+          chainId: 8453,
+          nonce_binding: 'eip191',
+          sign_message_template: `afaagent:${endpoint}:{nonce}`
+        }
+      }
+    ],
+    resource: {
+      url: url,
+      description: priceInfo.desc
+    },
+    extensions: {
+      bazaar: {
+        outputSchema: {
+          input: {
+            schema: meta.inputSchema,
+            body: meta.input,
+            contentType: 'application/json',
+            method: 'POST'
+          },
+          output: {
+            body: meta.output,
+            contentType: 'application/json'
+          }
+        },
+        category: priceInfo.category || 'developer-tools',
+        tags: priceInfo.tags || [endpoint],
+        sellerName: 'AfaAgent',
+        sellerUrl: 'https://github.com/AfaAgent'
+      }
+    },
+    endpoint,
+    price: priceInfo.amount,
     currency: CURRENCY,
     wallet: WALLET,
     chain: CHAIN,
-    endpoint
-  }), {
+    description: priceInfo.desc
+  };
+  
+  return new Response(JSON.stringify(body), {
     status: 402,
     headers: {
-      'Content-Type': 'application/json',
-      'WWW-Authenticate': `x402 price="${price}", chain="${CHAIN}", currency="${CURRENCY}", wallet="${WALLET}"`,
-      'X-Price': price,
+      'Content-Type': 'application/json; charset=utf-8',
+      'WWW-Authenticate': `x402 price="${priceInfo.amount}", chain="${CHAIN}", currency="${CURRENCY}", wallet="${WALLET}"`,
+      'X-Price': priceInfo.amount,
       'X-Wallet': WALLET,
       'X-Chain': CHAIN,
+      'X-Currency': CURRENCY,
+      'X-Endpoint': endpoint,
       'Access-Control-Allow-Origin': '*'
     }
   });
@@ -103,13 +421,13 @@ function paymentRequired(endpoint) {
 
 async function handleApiCall(endpoint, request, corsHeaders) {
   if (!PRICES[endpoint]) {
-    return json({ error: 'Endpoint not found', available: Object.keys(PRICES) }, 
+    return json({ error: 'Endpoint not found', available: Object.keys(PRICES), count: Object.keys(PRICES).length }, 
       { ...corsHeaders, status: 404 });
   }
   
-  const paymentHeader = request.headers.get('X-Payment');
+  const paymentHeader = request.headers.get('X-Payment') || request.headers.get('Authorization');
   if (!paymentHeader) {
-    return paymentRequired(endpoint);
+    return paymentRequired(endpoint, request.url);
   }
   
   let body = {};
@@ -118,7 +436,7 @@ async function handleApiCall(endpoint, request, corsHeaders) {
   } catch (e) {}
   
   const result = await processEndpoint(endpoint, body);
-  return json({ success: true, data: result, timestamp: Date.now() }, corsHeaders);
+  return json({ success: true, data: result, timestamp: Date.now(), endpoint }, corsHeaders);
 }
 
 async function processEndpoint(endpoint, body) {
@@ -162,10 +480,10 @@ async function processEndpoint(endpoint, body) {
       const final = principal * Math.pow(1 + dailyRate, days);
       return {
         principal, apy, days,
-        final_amount: final,
-        total_earned: final - principal,
-        daily_earnings: (final - principal) / days,
-        apy_effective: ((final / principal - 1) * 100)
+        final_amount: Math.round(final * 100) / 100,
+        total_earned: Math.round((final - principal) * 100) / 100,
+        daily_earnings: Math.round((final - principal) / days * 100) / 100,
+        apy_effective: Math.round((final / principal - 1) * 10000) / 100
       };
     }
     case 'summarize': {
@@ -176,7 +494,7 @@ async function processEndpoint(endpoint, body) {
         summary: words.slice(0, Math.min(50, words.length)).join(' ') + (words.length > 50 ? '...' : ''),
         original_length: words.length,
         summary_length: Math.min(50, words.length),
-        compression_ratio: Math.min(50, words.length) / Math.max(1, words.length),
+        compression_ratio: Math.round(Math.min(50, words.length) / Math.max(1, words.length) * 100) / 100,
         key_points: sentences.slice(0, 3).map(s => s.trim())
       };
     }
@@ -308,11 +626,11 @@ async function processEndpoint(endpoint, body) {
       const syllables = text.split(/[aeiouy]+/gi).filter(s => s.length > 0).length;
       const flesch = 206.835 - 1.015 * (words / Math.max(1, sentences)) - 84.6 * (syllables / Math.max(1, words));
       return {
-        flesch_kincaid: Math.max(0, Math.min(100, flesch)),
+        flesch_kincaid: Math.max(0, Math.min(100, Math.round(flesch * 10) / 10)),
         reading_level: flesch > 90 ? '5th grade' : flesch > 80 ? '6th grade' : flesch > 70 ? '7th grade' : flesch > 60 ? '8th-9th grade' : flesch > 50 ? '10th-12th grade' : 'College',
         word_count: words,
         sentence_count: sentences,
-        avg_words_per_sentence: words / Math.max(1, sentences),
+        avg_words_per_sentence: Math.round(words / Math.max(1, sentences) * 10) / 10,
         syllable_count: syllables
       };
     }
@@ -456,7 +774,7 @@ async function processEndpoint(endpoint, body) {
       const keywords = Object.entries(freq)
         .sort((a, b) => b[1] - a[1])
         .slice(0, limit)
-        .map(([word, count]) => ({ word, count, score: count / words.length }));
+        .map(([word, count]) => ({ word, count, score: Math.round(count / words.length * 100) / 100 }));
       return { keywords, total_words: words.length, unique_keywords: Object.keys(freq).length };
     }
     case 'domains-available': {
@@ -674,7 +992,7 @@ async function processEndpoint(endpoint, body) {
         gas_limit: gasLimit,
         gas_price_gwei: gasGwei,
         gas_cost_eth: gasEth,
-        gas_cost_usd: gasEth * ethPrice,
+        gas_cost_usd: Math.round(gasEth * ethPrice * 100) / 100,
         eth_price: ethPrice,
         network: body.network || 'ethereum'
       };
@@ -712,11 +1030,12 @@ async function processEndpoint(endpoint, body) {
       };
     }
     case 'defi-strategy': {
+      const capital = body.capital || 10000;
       return {
-        capital: body.capital || 10000,
+        capital,
         risk_tolerance: body.risk_tolerance || 'medium',
         expected_apy: 12.5,
-        expected_monthly_earnings: (body.capital || 10000) * 0.125 / 12,
+        expected_monthly_earnings: capital * 0.125 / 12,
         allocation: [
           { protocol: 'Aave', allocation_pct: 30, apy: 4.5, risk: 'low' },
           { protocol: 'Compound', allocation_pct: 25, apy: 3.8, risk: 'low' },
@@ -811,18 +1130,42 @@ function generateQrPattern(data) {
   return modules;
 }
 
+function getRails() {
+  return {
+    rails: [
+      {
+        id: 'base-usdc',
+        network: CHAIN,
+        asset: USDC_CONTRACT,
+        assetSymbol: CURRENCY,
+        payTo: WALLET,
+        scheme: 'exact',
+        maxTimeoutSeconds: 60,
+      },
+    ],
+    accepts: [
+      {
+        network: CHAIN,
+        asset: USDC_CONTRACT,
+        symbol: CURRENCY,
+      },
+    ],
+  };
+}
+
 function getWellKnown() {
   return {
+    version: 1,
     name: 'AfaAgent API Suite',
     description: '43 production-grade APIs across DeFi, wallet security, AI tools, developer utilities, SEO, and crypto analytics. All pay-per-call USDC on Base via x402 protocol. Built for AI agents and autonomous systems.',
-    version: '4.0.0',
+    version_api: '4.0.0',
     operator: 'AfaAgent',
     contact: 'https://github.com/AfaAgent',
     website: 'https://afaagent.github.io/x402-api-suite/',
     documentation: '/openapi.json',
     categories: ['blockchain-web3', 'ai-ml', 'developer-tools', 'finance-fintech', 'productivity', 'security', 'data-analytics', 'marketing-seo'],
     keywords: ['crypto', 'defi', 'wallet', 'security', 'ethereum', 'solana', 'base', 'ai', 'ml', 'api', 'micropayments', 'x402', 'developer', 'tools', 'seo', 'analytics', 'smart contract', 'audit', 'rug pull', 'portfolio', 'yield farming'],
-    networks: ['eip155:8453'],
+    networks: [CHAIN],
     rate_limit: '100 requests per minute',
     avg_response_time_ms: 50,
     uptime_30d_pct: 99.99,
@@ -831,35 +1174,108 @@ function getWellKnown() {
       { tier: 'Standard', range: '$0.10-$1.00', count: 10 },
       { tier: 'Premium', range: '$4.99-$19.99', count: 5 }
     ],
-    endpoints: Object.entries(PRICES).map(([id, price]) => ({
-      id, path: `/api/v1/${id}`, method: 'POST', price, currency: 'USDC',
-      description: id
-    }))
+    resources: Object.keys(PRICES).map(id => `POST /api/v1/${id}`),
+    provider: 'AfaAgent',
+    endpoints: Object.entries(PRICES).map(([id, p]) => ({
+      id,
+      path: `/api/v1/${id}`,
+      method: 'POST',
+      price: p.amount,
+      currency: CURRENCY,
+      description: p.desc,
+    })),
   };
 }
 
-function getOpenAPI() {
+function getOpenAPI(origin) {
   const paths = {};
-  Object.entries(PRICES).forEach(([id, price]) => {
+  Object.entries(PRICES).forEach(([id, p]) => {
+    const meta = getMeta(id);
+    const category = p.desc.includes('wallet') || p.desc.includes('crypto') || p.desc.includes('token') || p.desc.includes('DeFi') || p.desc.includes('swap') || p.desc.includes('transaction') || p.desc.includes('yield') || p.desc.includes('gas') || p.desc.includes('nft') || p.desc.includes('portfolio') || p.desc.includes('rug') || p.desc.includes('audit')
+      ? 'blockchain-web3'
+      : p.desc.includes('SEO') || p.desc.includes('headline') || p.desc.includes('rewrite') || p.desc.includes('keyword')
+      ? 'marketing-seo'
+      : p.desc.includes('summary') || p.desc.includes('sentiment') || p.desc.includes('entity') || p.desc.includes('language')
+      ? 'ai-ml'
+      : 'developer-tools';
     paths[`/api/v1/${id}`] = {
       post: {
-        summary: id,
-        description: `${id}. Pay-per-call: $${price} USDC via x402 protocol.`,
+        summary: p.desc,
+        description: p.desc,
+        tags: [category],
+        operationId: id,
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: meta.inputSchema } }
+        },
         responses: {
-          200: { description: 'Successful response' },
-          402: { description: 'Payment Required - x402 payment needed' }
-        }
+          '200': {
+            description: 'Successful response',
+            content: { 'application/json': { example: meta.output } }
+          },
+          '402': { description: 'Payment Required - x402 payment needed' },
+          '400': { description: 'Bad Request' },
+        },
+        'x-payment-info': {
+          price: { mode: 'fixed', currency: 'USD', amount: p.amount },
+          protocols: [{ x402: {} }],
+        },
       }
     };
   });
+
   return {
     openapi: '3.1.0',
-    info: { title: 'AfaAgent API Suite', version: '4.0.0', description: '43 x402-powered APIs' },
-    paths
+    info: {
+      title: 'AfaAgent API Suite',
+      description: '43 production APIs across DeFi, wallet security, AI tools, developer utilities, SEO, and crypto analytics. All pay-per-call USDC on Base via x402 protocol.',
+      version: '4.0.0',
+      contact: { name: 'AfaAgent', url: 'https://github.com/AfaAgent', email: 'afaagent.me@gmail.com' },
+      'x-guidance': `AfaAgent API Suite provides 43 production-grade APIs for AI agents.
+All endpoints are pay-per-call via x402 protocol with USDC on Base network.
+
+To use any endpoint:
+1. Send a POST request to the endpoint
+2. Receive 402 Payment Required with payment details
+3. Pay the specified USDC amount on Base to the wallet address
+4. Resend the request with the txHash or payment signature
+
+Categories available:
+- blockchain-web3: Crypto prices, wallet risk, DeFi tools, smart contract audit
+- ai-ml: Text summarization, sentiment analysis, entity extraction
+- developer-tools: JSON formatting, hash generation, QR codes, regex builder
+- marketing-seo: SEO meta tags, headline generator, keyword extraction
+- productivity: Timezone conversion, URL shortener, currency converter
+
+Payment wallet: ${WALLET}
+Network: Base (${CHAIN})
+Token: USDC (${USDC_CONTRACT})`,
+    },
+    servers: [{ url: origin || 'https://afaagent.github.io/x402-api-suite/', description: 'Production' }],
+    tags: [
+      { name: 'blockchain-web3', description: 'Crypto, DeFi, wallet security, blockchain tools' },
+      { name: 'ai-ml', description: 'AI-powered text analysis and generation' },
+      { name: 'developer-tools', description: 'Utilities for developers' },
+      { name: 'marketing-seo', description: 'SEO, content, and marketing tools' },
+      { name: 'productivity', description: 'Productivity and utility tools' },
+    ],
+    components: {
+      securitySchemes: {
+        siwx: {
+          type: 'http',
+          scheme: 'siwx',
+          description: 'Sign-In with X (Ethereum) for identity verification',
+        },
+      },
+    },
+    'x-discovery': {
+      ownershipProofs: [],
+    },
+    paths,
   };
 }
 
-function getAgentsJson() {
+function getAgentsJson(origin) {
   return {
     schema_version: '1.0',
     name: 'AfaAgent API Suite',
@@ -872,8 +1288,8 @@ function getAgentsJson() {
     openapi_url: '/openapi.json',
     llms_doc_url: '/llms.txt',
     total_endpoints: 43,
-    pricing: { model: 'pay-per-call', currency: 'USDC', network: 'Base', min_price: '0.01', max_price: '19.99' },
-    mcp: { available: true, tools_count: 43, server_url: 'https://github.com/AfaAgent/x402-api-suite/tree/main/x402-mcp-server' }
+    pricing: { model: 'pay-per-call', currency: CURRENCY, network: 'Base', min_price: '0.01', max_price: '19.99' },
+    mcp: { available: true, tools_count: 43, server_url: `${origin || 'https://afaagent.github.io/x402-api-suite/'}/mcp` }
   };
 }
 
@@ -891,9 +1307,10 @@ All /api/v1/* endpoints require x402 payment:
 3. Sign and send USDC payment via EIP-3009
 4. Retry request with X-Payment header
 
-Network: Base (eip155:8453)
-Asset: USDC
-Wallet: 0x0c1fa40d4600081270c931811587d68af18b0b94
+Network: Base (${CHAIN})
+Asset: ${CURRENCY}
+Wallet: ${WALLET}
+USDC Contract: ${USDC_CONTRACT}
 
 ## Endpoints
 
@@ -958,6 +1375,10 @@ Content-Type: application/json
 
 ## Discovery
 
-- .well-known/x402 - Full service catalog with pricing
-- openapi.json - OpenAPI 3.1 specification
+- /.well-known/x402 - Full service catalog with pricing
+- /openapi.json - OpenAPI 3.1 specification
+- /llms.txt - This file (LLM-friendly docs)
+- /agents.json - AI agent manifest
+- /health - Health check
+- /v1/x402/rails - Payment rails info
 `;

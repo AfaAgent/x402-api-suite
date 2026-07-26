@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@goldbean/x402-sdk": "^1.0.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "cors": "^2.8.5",
     "express": "^4.21.0"
   },
@@ -16,6 +17,7 @@
     "node": ">=18"
   },
   "devDependencies": {
-    "localtunnel": "^2.0.2"
+    "localtunnel": "^2.0.2",
+    "wrangler": "^4.114.0"
   }
 }

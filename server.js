@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const { x402Middleware, createPricing } = require('@goldbean/x402-sdk');
 const { json } = require('express');
+const { getMeta } = require('./service-meta');
 
 const app = express();
 app.use(cors());
@@ -55,22 +56,18 @@ const prices = createPricing({
   'rug-detect': { amount: '4.99', desc: 'Rug pull detector — analyze any token contract for scam risk signals' },
 });
 
-app.get('/.well-known/x402', (req, res) => {
+app.get('/.well-known/x402.json', (req, res) => {
   res.json({
     name: 'AfaAgent API Suite',
-    description: '38 production-grade APIs across DeFi, wallet security, AI tools, developer utilities, SEO, and crypto analytics. All pay-per-call USDC on Base via x402 protocol. Built for AI agents and autonomous systems.',
+    description: '43 production-grade APIs across DeFi, wallet security, AI tools, developer utilities, SEO, and crypto analytics. All pay-per-call USDC on Base via x402 protocol. Built for AI agents and autonomous systems.',
     version: '4.0.0',
     operator: 'AfaAgent',
     contact: 'https://github.com/AfaAgent',
     website: 'https://afaagent.ai',
     documentation: '/openapi.json',
-    terms_of_service: 'https://afaagent.ai/terms',
     categories: ['blockchain-web3', 'ai-ml', 'developer-tools', 'finance-fintech', 'productivity', 'security', 'data-analytics', 'marketing-seo'],
     keywords: ['crypto', 'defi', 'wallet', 'security', 'ethereum', 'solana', 'base', 'ai', 'ml', 'api', 'micropayments', 'x402', 'developer', 'tools', 'seo', 'analytics'],
     networks: ['eip155:8453'],
-    rate_limit: '100 requests per minute',
-    avg_response_time_ms: 150,
-    uptime_30d_pct: 99.9,
     endpoints: Object.entries(prices).map(([id, p]) => ({
       id,
       path: `/api/v1/${id}`,
@@ -82,26 +79,49 @@ app.get('/.well-known/x402', (req, res) => {
   });
 });
 
+app.get('/.well-known/x402', (req, res) => {
+  res.json({
+    version: 1,
+    resources: Object.keys(prices).map(id => `POST /api/v1/${id}`),
+    provider: 'AfaAgent',
+    name: 'AfaAgent API Suite',
+    description: '43 production APIs — DeFi, wallet security, AI tools, developer utilities. All pay-per-call USDC on Base via x402.',
+  });
+});
+
 app.get('/openapi.json', (req, res) => {
   const paths = {};
   Object.entries(prices).forEach(([id, p]) => {
+    const meta = getMeta(id);
+    const category = p.desc.includes('wallet') || p.desc.includes('crypto') || p.desc.includes('token') || p.desc.includes('DeFi') || p.desc.includes('swap') || p.desc.includes('transaction') || p.desc.includes('yield') || p.desc.includes('gas') || p.desc.includes('nft') || p.desc.includes('portfolio') || p.desc.includes('rug') || p.desc.includes('audit')
+      ? 'blockchain-web3'
+      : p.desc.includes('SEO') || p.desc.includes('headline') || p.desc.includes('rewrite') || p.desc.includes('keyword')
+      ? 'marketing-seo'
+      : p.desc.includes('AI') || p.desc.includes('sentiment') || p.desc.includes('summary') || p.desc.includes('entity') || p.desc.includes('language')
+      ? 'ai-ml'
+      : 'developer-tools';
     paths[`/api/v1/${id}`] = {
       post: {
         summary: p.desc,
-        description: `${p.desc}. Pay-per-call: $${p.amount} USDC via x402 protocol.`,
-        tags: [p.desc.includes('wallet') || p.desc.includes('crypto') || p.desc.includes('token') || p.desc.includes('DeFi') || p.desc.includes('swap') || p.desc.includes('transaction') || p.desc.includes('yield') || p.desc.includes('gas') || p.desc.includes('nft') || p.desc.includes('portfolio') ? 'blockchain-web3' : p.desc.includes('SEO') || p.desc.includes('headline') || p.desc.includes('rewrite') || p.desc.includes('keyword') ? 'marketing-seo' : p.desc.includes('AI') || p.desc.includes('sentiment') || p.desc.includes('summary') || p.desc.includes('entity') ? 'ai-ml' : 'developer-tools'],
+        description: p.desc,
+        tags: [category],
+        operationId: id,
         requestBody: {
           required: true,
-          content: { 'application/json': { schema: { type: 'object', properties: { input: { type: 'string' } } } } }
+          content: { 'application/json': { schema: meta.inputSchema } }
         },
         responses: {
-          '200': { description: 'Successful response' },
-          '402': { description: 'Payment Required - x402 payment needed' },
+          '200': {
+            description: 'Successful response',
+            content: { 'application/json': { example: meta.output } }
+          },
+          '402': { description: 'Payment Required' },
           '400': { description: 'Bad Request' },
         },
-        'x-x402-price': p.amount,
-        'x-x402-currency': 'USDC',
-        'x-x402-network': 'eip155:8453',
+        'x-payment-info': {
+          price: { mode: 'fixed', currency: 'USD', amount: p.amount },
+          protocols: [{ x402: {} }],
+        },
       }
     };
   });
@@ -110,11 +130,30 @@ app.get('/openapi.json', (req, res) => {
     openapi: '3.1.0',
     info: {
       title: 'AfaAgent API Suite',
-      description: '38 production APIs — DeFi, wallet security, AI tools, developer utilities. All pay-per-call USDC on Base via x402.',
+      description: '43 production APIs across DeFi, wallet security, AI tools, developer utilities, SEO, and crypto analytics. All pay-per-call USDC on Base via x402 protocol. Built for AI agents and autonomous systems.',
       version: '4.0.0',
-      contact: { name: 'AfaAgent', url: 'https://github.com/AfaAgent' },
+      contact: { name: 'AfaAgent', url: 'https://github.com/AfaAgent', email: 'afaagent.me@gmail.com' },
+      'x-guidance': `AfaAgent API Suite provides 43 production-grade APIs for AI agents.
+All endpoints are pay-per-call via x402 protocol with USDC on Base network.
+
+To use any endpoint:
+1. Send a POST request to the endpoint
+2. Receive 402 Payment Required with payment details
+3. Pay the specified USDC amount on Base to the wallet address
+4. Resend the request with the txHash or payment signature
+
+Categories available:
+- blockchain-web3: Crypto prices, wallet risk, DeFi tools, smart contract audit
+- ai-ml: Text summarization, sentiment analysis, entity extraction
+- developer-tools: JSON formatting, hash generation, QR codes, regex builder
+- marketing-seo: SEO meta tags, headline generator, keyword extraction
+- productivity: Timezone conversion, URL shortener, currency converter
+
+Payment wallet: 0x7B8401b5B4ee319aa47DC5F12b869e5Be460A9B2
+Network: Base (eip155:8453)
+Token: USDC (0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913)`,
     },
-    servers: [{ url: 'https://smooth-fox-5.loca.lt', description: 'Production' }],
+    servers: [{ url: 'https://slimy-bird-47.loca.lt', description: 'Production' }],
     tags: [
       { name: 'blockchain-web3', description: 'Crypto, DeFi, wallet security, blockchain tools' },
       { name: 'ai-ml', description: 'AI-powered text analysis and generation' },
@@ -122,6 +161,18 @@ app.get('/openapi.json', (req, res) => {
       { name: 'marketing-seo', description: 'SEO, content, and marketing tools' },
       { name: 'productivity', description: 'Productivity and utility tools' },
     ],
+    components: {
+      securitySchemes: {
+        siwx: {
+          type: 'http',
+          scheme: 'siwx',
+          description: 'Sign-In with X (Ethereum) for identity verification',
+        },
+      },
+    },
+    'x-discovery': {
+      ownershipProofs: [],
+    },
     paths,
   });
 });
@@ -154,13 +205,103 @@ app.get('/v1/x402/rails', (req, res) => {
   });
 });
 
-app.use('/api/v1/', x402Middleware({
+const baseX402 = x402Middleware({
   wallet: WALLET,
   prices: prices,
   publicPaths: [],
   network: 'eip155:8453',
   maxTimeoutSeconds: 60,
-}));
+});
+
+app.use('/api/v1/', (req, res, next) => {
+  const origJson = res.json.bind(res);
+  res.json = function(body) {
+    if (res.statusCode === 402 && body) {
+      const ep = req.path.split('/').pop();
+      const meta = getMeta(ep);
+      const price = prices[ep] || { amount: '0.01', desc: 'API Call' };
+      const amount = Math.round(parseFloat(price.amount) * 1e6).toString();
+      const category = price.desc.includes('wallet') || price.desc.includes('crypto') || price.desc.includes('token') || price.desc.includes('DeFi') || price.desc.includes('swap') || price.desc.includes('transaction') || price.desc.includes('yield') || price.desc.includes('gas') || price.desc.includes('nft') || price.desc.includes('portfolio') || price.desc.includes('rug') || price.desc.includes('audit')
+        ? 'blockchain-web3'
+        : price.desc.includes('SEO') || price.desc.includes('headline') || price.desc.includes('rewrite') || price.desc.includes('keyword')
+        ? 'marketing-seo'
+        : price.desc.includes('AI') || price.desc.includes('sentiment') || price.desc.includes('summary') || price.desc.includes('entity') || price.desc.includes('language')
+        ? 'ai-ml'
+        : 'developer-tools';
+      const fullUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+      const v2Body = {
+        x402Version: 2,
+        error: 'payment_required',
+        accepts: [
+          {
+            scheme: 'exact',
+            network: 'eip155:8453',
+            asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+            amount: amount,
+            payTo: WALLET,
+            maxTimeoutSeconds: 300,
+            extra: {
+              token: 'USDC',
+              decimals: 6,
+              chainId: 8453,
+              nonce_binding: 'eip191',
+              sign_message_template: `afaagent:${ep}:{nonce}`
+            }
+          }
+        ],
+        resource: {
+          url: fullUrl,
+          description: price.desc
+        },
+        extensions: {
+          bazaar: {
+            outputSchema: {
+              input: {
+                schema: meta.inputSchema,
+                body: meta.input,
+                contentType: 'application/json',
+                method: 'POST'
+              },
+              output: {
+                body: meta.output,
+                contentType: 'application/json'
+              }
+            },
+            category,
+            tags: [price.desc.split(' ')[0].toLowerCase(), 'x402', 'api', 'pay-per-call'],
+            sellerName: 'AfaAgent',
+            sellerUrl: 'https://github.com/AfaAgent'
+          }
+        },
+        endpoint: ep,
+        price: price.amount,
+        currency: 'USDC',
+        wallet: WALLET,
+        chain: 'eip155:8453',
+        description: price.desc,
+        outputSchema: {
+          input: {
+            schema: meta.inputSchema,
+            body: meta.input,
+            contentType: 'application/json',
+            method: 'POST'
+          },
+          output: {
+            body: meta.output,
+            contentType: 'application/json'
+          }
+        },
+        serviceId: `afaagent/${ep}`,
+        provider: 'AfaAgent',
+        category,
+        tags: [price.desc.split(' ')[0].toLowerCase(), 'x402', 'api', 'pay-per-call'],
+      };
+      return origJson(v2Body);
+    }
+    return origJson(body);
+  };
+  baseX402(req, res, next);
+});
 
 // ─── 1. SUMMARIZE ───
 app.post('/api/v1/summarize', (req, res) => {
@@ -2714,6 +2855,124 @@ function hexToRgb(hex) {
     b: parseInt(h.substring(4, 6), 16),
   };
 }
+
+const { StreamableHTTPServerTransport } = require('@modelcontextprotocol/sdk/server/streamablehttp.js');
+const { Server: MCPServer } = require('@modelcontextprotocol/sdk/server/index.js');
+const {
+  CallToolRequestSchema,
+  ListToolsRequestSchema,
+} = require('@modelcontextprotocol/sdk/types.js');
+
+const MCP_SERVICES = {};
+for (const [id, info] of Object.entries(prices)) {
+  MCP_SERVICES[id] = {
+    price: parseFloat(info.amount),
+    desc: info.desc,
+  };
+}
+
+function toMcpName(serviceId) {
+  return serviceId.replace(/-/g, '_');
+}
+
+function generateMcpInputSchema(serviceId) {
+  const schemas = {
+    'crypto-prices': { type: 'object', properties: { tokens: { type: 'array', items: { type: 'string' }, description: 'Array of token IDs (bitcoin, ethereum, solana)' }, vs_currency: { type: 'string', description: 'Quote currency (default: usd)' } }, required: [] },
+    'gas-tracker': { type: 'object', properties: { network: { type: 'string', description: 'Network name (default: ethereum)' } }, required: [] },
+    'wallet-risk': { type: 'object', properties: { address: { type: 'string', description: 'Wallet address (required)' }, network: { type: 'string', description: 'Network (default: ethereum)' } }, required: ['address'] },
+    'token-screener': { type: 'object', properties: { contract_address: { type: 'string', description: 'Token contract address (required)' }, chain: { type: 'string', description: 'Chain (default: ethereum)' } }, required: ['contract_address'] },
+    'portfolio-tracker': { type: 'object', properties: { address: { type: 'string', description: 'Wallet address (required)' }, chain: { type: 'string', description: 'Chain (default: ethereum)' } }, required: ['address'] },
+    'yield-calculator': { type: 'object', properties: { principal: { type: 'number', description: 'Principal amount (required)' }, apy: { type: 'number', description: 'APY percentage (required)' }, days: { type: 'number', description: 'Days (default: 365)' }, compound: { type: 'string', description: 'Compounding frequency (daily/weekly/monthly/quarterly/yearly)' } }, required: ['principal', 'apy'] },
+    'gas-estimator': { type: 'object', properties: { gas_limit: { type: 'number', description: 'Gas limit (default: 21000)' }, gas_price_gwei: { type: 'number', description: 'Gas price in gwei' }, network: { type: 'string', description: 'Network (default: ethereum)' } }, required: [] },
+    'nft-metadata': { type: 'object', properties: { token_uri: { type: 'string', description: 'Token URI (required)' }, contract_address: { type: 'string', description: 'Contract address' }, token_id: { type: 'string', description: 'Token ID' } }, required: ['token_uri'] },
+    'swap-routing': { type: 'object', properties: { from_token: { type: 'string', description: 'From token (default: ETH)' }, to_token: { type: 'string', description: 'To token (default: USDC)' }, amount: { type: 'string', description: 'Amount (default: 1)' }, network: { type: 'string', description: 'Network (default: ethereum)' } }, required: [] },
+    'transaction-simulator': { type: 'object', properties: { from: { type: 'string', description: 'From address (required)' }, to: { type: 'string', description: 'To address (required)' }, value: { type: 'string', description: 'Value (default: 0)' }, data: { type: 'string', description: 'Data (default: 0x)' }, network: { type: 'string', description: 'Network (default: ethereum)' } }, required: ['from', 'to'] },
+    'smart-contract-audit': { type: 'object', properties: { code: { type: 'string', description: 'Contract code (required)' }, contract_type: { type: 'string', description: 'Contract type (default: solidity)' } }, required: ['code'] },
+    'rug-detect': { type: 'object', properties: { contract_address: { type: 'string', description: 'Token contract address (required)' }, chain: { type: 'string', description: 'Chain (default: ethereum)' } }, required: ['contract_address'] },
+    'defi-strategy': { type: 'object', properties: { capital: { type: 'number', description: 'Investment capital (required)' }, risk_tolerance: { type: 'string', description: 'Risk tolerance: low/medium/high (default: medium)' }, preferred_chains: { type: 'array', items: { type: 'string' }, description: 'Preferred chains' } }, required: ['capital'] },
+    'portfolio-rebalancer': { type: 'object', properties: { portfolio: { type: 'object', description: 'Current portfolio (required)' }, target_risk: { type: 'string', description: 'Target risk: conservative/moderate/aggressive' } }, required: ['portfolio'] },
+    'token-launch-analysis': { type: 'object', properties: { contract_address: { type: 'string', description: 'Token contract address (required)' }, chain: { type: 'string', description: 'Chain (default: ethereum)' }, whitepaper_url: { type: 'string', description: 'Whitepaper URL' } }, required: ['contract_address'] },
+    'summarize': { type: 'object', properties: { text: { type: 'string', description: 'Text to summarize (required)' }, max_length: { type: 'number', description: 'Max summary length' }, style: { type: 'string', description: 'Style: bullet/paragraph' } }, required: ['text'] },
+    'sentiment': { type: 'object', properties: { text: { type: 'string', description: 'Text to analyze (required)' }, language: { type: 'string', description: 'Language' } }, required: ['text'] },
+    'keyword-extractor': { type: 'object', properties: { text: { type: 'string', description: 'Text to extract keywords from (required)' }, limit: { type: 'number', description: 'Max keywords (default: 10)' } }, required: ['text'] },
+    'language-detect': { type: 'object', properties: { text: { type: 'string', description: 'Text to detect (required)' } }, required: ['text'] },
+    'text-complexity': { type: 'object', properties: { text: { type: 'string', description: 'Text to analyze (required)' } }, required: ['text'] },
+    'entity-extractor': { type: 'object', properties: { text: { type: 'string', description: 'Text to extract from (required)' }, types: { type: 'array', items: { type: 'string' }, description: 'Entity types to extract' } }, required: ['text'] },
+    'text-rewrite': { type: 'object', properties: { text: { type: 'string', description: 'Text to rewrite (required)' }, style: { type: 'string', description: 'Style: formal/casual/professional/academic' }, tone: { type: 'string', description: 'Tone' } }, required: ['text'] },
+    'headline-generator': { type: 'object', properties: { topic: { type: 'string', description: 'Topic (required)' }, style: { type: 'string', description: 'Style (default: general)' }, count: { type: 'number', description: 'Number of headlines (default: 10)' } }, required: ['topic'] },
+    'seo-meta': { type: 'object', properties: { content: { type: 'string', description: 'Content (required)' }, title: { type: 'string', description: 'Page title' }, url: { type: 'string', description: 'Page URL' }, keywords: { type: 'array', items: { type: 'string' }, description: 'Target keywords' } }, required: ['content'] },
+    'markdown-summary': { type: 'object', properties: { markdown: { type: 'string', description: 'Markdown text (required)' }, depth: { type: 'number', description: 'Heading depth (default: 3)' } }, required: ['markdown'] },
+    'qrcode': { type: 'object', properties: { data: { type: 'string', description: 'Data to encode (required)' }, size: { type: 'number', description: 'Size in px (default: 256)' }, color: { type: 'string', description: 'Foreground color (default: 000000)' }, background: { type: 'string', description: 'Background color (default: ffffff)' } }, required: ['data'] },
+    'json-format': { type: 'object', properties: { json: { type: 'string', description: 'JSON string (required)' }, action: { type: 'string', description: 'Action: beautify/minify/validate (default: beautify)' }, indent: { type: 'number', description: 'Indent spaces (default: 2)' } }, required: ['json'] },
+    'password-strength': { type: 'object', properties: { password: { type: 'string', description: 'Password (required)' } }, required: ['password'] },
+    'markdown-to-html': { type: 'object', properties: { markdown: { type: 'string', description: 'Markdown text (required)' }, options: { type: 'object', description: 'Conversion options' } }, required: ['markdown'] },
+    'base64-encode': { type: 'object', properties: { data: { type: 'string', description: 'Data (required)' }, action: { type: 'string', description: 'Action: encode/decode (default: encode)' } }, required: ['data'] },
+    'color-palette': { type: 'object', properties: { base_color: { type: 'string', description: 'Base hex color (default: 3b82f6)' }, scheme: { type: 'string', description: 'Scheme: complementary/analogous/triadic/monochromatic (default: complementary)' }, count: { type: 'number', description: 'Number of colors (default: 5)' } }, required: [] },
+    'regex-builder': { type: 'object', properties: { description: { type: 'string', description: 'Description of regex needed (required)' }, test_string: { type: 'string', description: 'String to test against' }, flags: { type: 'string', description: 'Regex flags (default: g)' } }, required: ['description'] },
+    'hash-generator': { type: 'object', properties: { text: { type: 'string', description: 'Text to hash (required)' }, algorithm: { type: 'string', description: 'Algorithm: md5/sha1/sha256/sha512/bcrypt (default: sha256)' } }, required: ['text'] },
+    'uuid-generator': { type: 'object', properties: { count: { type: 'number', description: 'Number of UUIDs (default: 1)' }, version: { type: 'string', description: 'Version: v1/v4/v5 (default: v4)' } }, required: [] },
+    'timestamp-converter': { type: 'object', properties: { timestamp: { type: 'string', description: 'Timestamp (uses current if not provided)' }, from_format: { type: 'string', description: 'Source format (default: unix)' }, to_format: { type: 'string', description: 'Target format (default: iso)' } }, required: [] },
+    'diff-checker': { type: 'object', properties: { text1: { type: 'string', description: 'First text (required)' }, text2: { type: 'string', description: 'Second text (required)' }, format: { type: 'string', description: 'Format: unified/split (default: unified)' } }, required: ['text1', 'text2'] },
+    'ip-geolocation': { type: 'object', properties: { ip: { type: 'string', description: 'IP address (required)' } }, required: ['ip'] },
+    'url-shortener': { type: 'object', properties: { url: { type: 'string', description: 'URL to shorten (required)' }, alias: { type: 'string', description: 'Custom alias' } }, required: ['url'] },
+    'user-agent-parser': { type: 'object', properties: { ua: { type: 'string', description: 'User agent string (required)' } }, required: ['ua'] },
+    'currency-converter': { type: 'object', properties: { amount: { type: 'number', description: 'Amount (default: 1)' }, from: { type: 'string', description: 'From currency (default: USD)' }, to: { type: 'string', description: 'To currency (default: EUR)' } }, required: [] },
+    'json-schema-validator': { type: 'object', properties: { json: { type: 'string', description: 'JSON string (required)' }, schema: { type: 'string', description: 'JSON Schema string (required)' } }, required: ['json', 'schema'] },
+    'favicon-generator': { type: 'object', properties: { text: { type: 'string', description: 'Text/initials (required)' }, color: { type: 'string', description: 'Text color (default: white)' }, background: { type: 'string', description: 'Background color (default: 3b82f6)' }, size: { type: 'number', description: 'Size in px (default: 64)' } }, required: ['text'] },
+    'domains-available': { type: 'object', properties: { domain: { type: 'string', description: 'Domain name (required)' }, tlds: { type: 'array', items: { type: 'string' }, description: 'TLDs to check (default: com,net,org,io,dev,xyz)' } }, required: ['domain'] },
+  };
+  return schemas[serviceId] || { type: 'object', properties: {}, required: [] };
+}
+
+async function startMCPServer() {
+  const mcpServer = new MCPServer(
+    { name: 'afaagent-x402-suite', version: '4.0.0' },
+    { capabilities: { tools: {} } }
+  );
+
+  mcpServer.setRequestHandler(ListToolsRequestSchema, async () => ({
+    tools: Object.entries(MCP_SERVICES).map(([id, service]) => ({
+      name: toMcpName(id),
+      description: `${service.desc}. Cost: $${service.price} USDC via x402 protocol.`,
+      inputSchema: generateMcpInputSchema(id),
+    })),
+  }));
+
+  mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
+    const toolName = request.params.name;
+    const serviceId = toolName.replace(/_/g, '-');
+    const service = MCP_SERVICES[serviceId];
+
+    if (!service) {
+      return { content: [{ type: 'text', text: `Error: Tool ${toolName} not found` }], isError: true };
+    }
+
+    return {
+      content: [{
+        type: 'text',
+        text: `## Payment Required (x402)\n\nThis tool costs **$${service.price} USDC** on Base network.\n\n**Payment details:**\n- Network: Base (eip155:8453)\n- Asset: USDC\n- Amount: $${service.price}\n- Pay to: ${WALLET}\n\nCall the API directly at /api/v1/${serviceId} with an X-Payment header after sending the transaction.`,
+      }],
+      isError: true,
+    };
+  });
+
+  const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: () => require('crypto').randomUUID(),
+  });
+
+  app.post('/mcp', (req, res) => {
+    transport.handleRequest(req, res, req.body);
+  });
+
+  app.get('/mcp', (req, res) => {
+    transport.handleRequest(req, res, req.body);
+  });
+
+  await mcpServer.connect(transport);
+  console.log(`MCP server running at /mcp (${Object.keys(MCP_SERVICES).length} tools)`);
+}
+
+startMCPServer().catch(console.error);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

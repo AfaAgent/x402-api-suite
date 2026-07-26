@@ -1,0 +1,10 @@
+name = "afaagent-x402-api"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+account_id = ""
+
+[env.production]
+name = "afaagent-x402-api"
+
+routes = []
