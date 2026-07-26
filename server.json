@@ -1,0 +1,24 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.schema.json",
+  "name": "io.github.afaagent/x402-api-suite",
+  "description": "43 x402-enabled API tools — DeFi, wallet security, AI/ML, developer tools, SEO. Pay-per-call USDC on Base via x402 protocol. All tools available via Streamable HTTP MCP transport for Claude Desktop, Cursor, and any MCP-compatible client.",
+  "version": "4.0.0",
+  "repository": {
+    "url": "https://github.com/AfaAgent/x402-api-suite",
+    "source": "github"
+  },
+  "remotes": [
+    {
+      "transport": { "type": "streamable-http" },
+      "url": "https://afaagent-x402-api.storm-fly.workers.dev/mcp"
+    }
+  ],
+  "_meta": {
+    "io.modelcontextprotocol.registry/publisher-provided": {
+      "homepage": "https://afaagent-x402-api.storm-fly.workers.dev",
+      "tags": ["x402", "payments", "defi", "crypto", "usdc", "base", "ai-agents", "micropayments", "wallet-security", "smart-contract-audit"],
+      "license": "MIT",
+      "documentation": "https://github.com/AfaAgent/x402-api-suite#readme"
+    }
+  }
+}
