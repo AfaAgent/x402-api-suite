@@ -1,0 +1,22 @@
+{
+  "name": "afaagent-x402-mcp",
+  "version": "4.0.0",
+  "description": "MCP server with 43 x402-powered tools: DeFi, wallet security, AI, developer tools, SEO",
+  "main": "index.js",
+  "bin": {
+    "afaagent-x402-mcp": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.22.0"
+  },
+  "mcp": {
+    "type": "stdio",
+    "command": "node",
+    "args": ["index.js"]
+  },
+  "keywords": ["mcp", "x402", "crypto", "defi", "ai", "api", "micropayments", "usdc"]
+}
