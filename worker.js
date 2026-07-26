@@ -66,6 +66,29 @@ export default {
       });
     }
     
+    if (path === '/test-fetch') {
+      const results = {};
+      const apis = [
+        { name: 'binance', url: 'https://api.binance.com/api/v3/ping' },
+        { name: 'coingecko', url: 'https://api.coingecko.com/api/v3/ping' },
+        { name: 'cloudflare-eth', url: 'https://cloudflare-eth.com', method: 'POST', body: '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}' },
+        { name: 'base-rpc', url: 'https://mainnet.base.org', method: 'POST', body: '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}' },
+        { name: 'coinbase', url: 'https://api.coinbase.com/v2/time' },
+      ];
+      for (const api of apis) {
+        try {
+          const opts = { headers: { 'Content-Type': 'application/json', 'User-Agent': 'AfaAgent-x402/1.0' } };
+          if (api.method) { opts.method = api.method; opts.body = api.body; }
+          const r = await fetch(api.url, opts);
+          const text = await r.text();
+          results[api.name] = { status: r.status, ok: r.ok, body: text.substring(0, 200) };
+        } catch (e) {
+          results[api.name] = { error: e.message };
+        }
+      }
+      return json(results, corsHeaders);
+    }
+    
     return json({ error: 'Not found' }, { ...corsHeaders, status: 404 });
   }
 };
@@ -451,46 +474,37 @@ async function processEndpoint(endpoint, body) {
   switch (endpoint) {
     case 'crypto-prices': {
       const tokens = body.tokens || ['bitcoin', 'ethereum'];
+      const symbolMap = { bitcoin: 'BTC', ethereum: 'ETH', solana: 'SOL', cardano: 'ADA', dogecoin: 'DOGE', ripple: 'XRP', polkadot: 'DOT', avalanche: 'AVAX', chainlink: 'LINK', litecoin: 'LTC', bitcoin_cash: 'BCH', stellar: 'XLM' };
       try {
-        // Use Binance API - reliable, no key needed
-        const symbolMap = { bitcoin: 'BTC', ethereum: 'ETH', solana: 'SOL', cardano: 'ADA', dogecoin: 'DOGE', ripple: 'XRP', polkadot: 'DOT', avalanche: 'AVAX', chainlink: 'LINK', polygon: 'MATIC' };
         const result = {};
         for (const token of tokens) {
           const symbol = symbolMap[token.toLowerCase()];
           if (symbol) {
             try {
-              const resp = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}USDT`);
+              const resp = await fetch(`https://api.coinbase.com/v2/prices/${symbol}-USD/spot`, {
+                headers: { 'User-Agent': 'AfaAgent-x402/1.0' }
+              });
               if (resp.ok) {
                 const d = await resp.json();
-                result[token] = {
-                  price: parseFloat(d.lastPrice),
-                  change_24h: parseFloat(d.priceChangePercent),
-                  high_24h: parseFloat(d.highPrice),
-                  low_24h: parseFloat(d.lowPrice),
-                  volume_24h: parseFloat(d.volume)
-                };
+                result[token] = { price: parseFloat(d.data.amount), currency: 'USD', source: 'coinbase' };
               }
             } catch (e) {}
           }
         }
         if (Object.keys(result).length > 0) {
-          return { source: 'binance', ...result };
+          return { source: 'coinbase', ...result, timestamp: new Date().toISOString() };
         }
       } catch (e) {}
-      return {
-        bitcoin: { price: 67000, change_24h: 2.3 },
-        ethereum: { price: 3400, change_24h: -1.2 },
-        source: 'fallback'
-      };
+      return { bitcoin: { price: 67000, currency: 'USD' }, ethereum: { price: 3400, currency: 'USD' }, source: 'fallback' };
     }
     case 'wallet-risk': {
       const address = body.address || '0x0000000000000000000000000000000000000000';
       const network = body.network || 'ethereum';
       try {
         const rpcMap = {
-          ethereum: 'https://cloudflare-eth.com',
-          base: 'https://mainnet.base.org',
-          polygon: 'https://polygon-rpc.com'
+          ethereum: 'https://1rpc.io/eth',
+          base: 'https://1rpc.io/base',
+          polygon: 'https://1rpc.io/matic'
         };
         const rpc = rpcMap[network] || rpcMap.ethereum;
         
@@ -566,9 +580,9 @@ async function processEndpoint(endpoint, body) {
       const network = body.network || 'ethereum';
       try {
         const rpcMap = {
-          ethereum: 'https://cloudflare-eth.com',
-          base: 'https://mainnet.base.org',
-          polygon: 'https://polygon-rpc.com'
+          ethereum: 'https://1rpc.io/eth',
+          base: 'https://1rpc.io/base',
+          polygon: 'https://1rpc.io/matic'
         };
         const rpc = rpcMap[network] || rpcMap.ethereum;
         const resp = await fetch(rpc, {
