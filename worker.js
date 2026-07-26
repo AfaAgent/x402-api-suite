@@ -39,23 +39,31 @@ export default {
       return json(getRails(), corsHeaders);
     }
     
+    if (path === '/mcp' || path === '/mcp/') {
+      return handleMcp(request, corsHeaders, url.origin);
+    }
+    
     if (path.startsWith('/api/v1/')) {
       const endpoint = path.replace('/api/v1/', '');
       return handleApiCall(endpoint, request, corsHeaders);
     }
     
+    if (path === '/favicon.ico' || path === '/favicon.svg' || path === '/favicon.png') {
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <rect width="64" height="64" rx="12" fill="#10b981"/>
+  <text x="32" y="42" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" font-weight="bold" fill="white">A</text>
+  <circle cx="50" cy="14" r="10" fill="#f59e0b"/>
+  <text x="50" y="18" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white">$</text>
+</svg>`;
+      return new Response(svg, {
+        headers: { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=86400', ...corsHeaders }
+      });
+    }
+    
     if (path === '/' || path === '') {
-      return json({ 
-        name: 'AfaAgent x402 API Suite',
-        version: '4.0.0',
-        endpoints: 43,
-        description: '43 production-grade APIs across DeFi, wallet security, AI tools, developer utilities, SEO, and crypto analytics. All pay-per-call USDC on Base via x402 protocol.',
-        docs: '/.well-known/x402',
-        openapi: '/openapi.json',
-        health: '/health',
-        llms_txt: '/llms.txt',
-        agents_json: '/agents.json'
-      }, corsHeaders);
+      return new Response(getLandingPage(), {
+        headers: { 'Content-Type': 'text/html; charset=utf-8', ...corsHeaders }
+      });
     }
     
     return json({ error: 'Not found' }, { ...corsHeaders, status: 404 });
@@ -443,34 +451,153 @@ async function processEndpoint(endpoint, body) {
   switch (endpoint) {
     case 'crypto-prices': {
       const tokens = body.tokens || ['bitcoin', 'ethereum'];
-      const mock = {
-        bitcoin: { usd: 67234.52, usd_24h_change: 2.34 },
-        ethereum: { usd: 3421.18, usd_24h_change: -1.23 },
-        solana: { usd: 142.56, usd_24h_change: 5.67 },
-        usdc: { usd: 1.0, usd_24h_change: 0.01 }
+      try {
+        // Use Binance API - reliable, no key needed
+        const symbolMap = { bitcoin: 'BTC', ethereum: 'ETH', solana: 'SOL', cardano: 'ADA', dogecoin: 'DOGE', ripple: 'XRP', polkadot: 'DOT', avalanche: 'AVAX', chainlink: 'LINK', polygon: 'MATIC' };
+        const result = {};
+        for (const token of tokens) {
+          const symbol = symbolMap[token.toLowerCase()];
+          if (symbol) {
+            try {
+              const resp = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}USDT`);
+              if (resp.ok) {
+                const d = await resp.json();
+                result[token] = {
+                  price: parseFloat(d.lastPrice),
+                  change_24h: parseFloat(d.priceChangePercent),
+                  high_24h: parseFloat(d.highPrice),
+                  low_24h: parseFloat(d.lowPrice),
+                  volume_24h: parseFloat(d.volume)
+                };
+              }
+            } catch (e) {}
+          }
+        }
+        if (Object.keys(result).length > 0) {
+          return { source: 'binance', ...result };
+        }
+      } catch (e) {}
+      return {
+        bitcoin: { price: 67000, change_24h: 2.3 },
+        ethereum: { price: 3400, change_24h: -1.2 },
+        source: 'fallback'
       };
-      const result = {};
-      tokens.forEach(t => { result[t] = mock[t.toLowerCase()] || { usd: 0, usd_24h_change: 0 }; });
-      return result;
     }
     case 'wallet-risk': {
       const address = body.address || '0x0000000000000000000000000000000000000000';
-      return {
-        address,
-        risk_score: Math.floor(Math.random() * 40) + 10,
-        risk_level: 'low',
-        factors: ['No known scams', 'Active transactions', 'Diversified portfolio'],
-        last_checked: new Date().toISOString()
-      };
+      const network = body.network || 'ethereum';
+      try {
+        const rpcMap = {
+          ethereum: 'https://cloudflare-eth.com',
+          base: 'https://mainnet.base.org',
+          polygon: 'https://polygon-rpc.com'
+        };
+        const rpc = rpcMap[network] || rpcMap.ethereum;
+        
+        // Get ETH balance
+        const balanceResp = await fetch(rpc, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getBalance', params: [address, 'latest'] })
+        });
+        const balanceData = await balanceResp.json();
+        const balance = parseInt(balanceData.result || '0x0', 16) / 1e18;
+        
+        // Get transaction count
+        const txResp = await fetch(rpc, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'eth_getTransactionCount', params: [address, 'latest'] })
+        });
+        const txData = await txResp.json();
+        const txCount = parseInt(txData.result || '0x0', 16);
+        
+        // Get code (check if contract)
+        const codeResp = await fetch(rpc, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jsonrpc: '2.0', id: 3, method: 'eth_getCode', params: [address, 'latest'] })
+        });
+        const codeData = await codeResp.json();
+        const isContract = codeData.result && codeData.result !== '0x';
+        
+        // Calculate risk score based on real data
+        let riskScore = 10;
+        const factors = [];
+        
+        if (balance === 0 && txCount === 0) {
+          riskScore = 80;
+          factors.push('Empty wallet - no balance, no transactions');
+        } else {
+          if (balance > 0) { factors.push(`Has ${balance.toFixed(4)} ETH balance`); riskScore += 5; }
+          if (txCount > 100) { factors.push(`High activity: ${txCount} transactions`); riskScore -= 5; }
+          else if (txCount > 10) { factors.push(`Moderate activity: ${txCount} transactions`); }
+          else if (txCount > 0) { factors.push(`Low activity: ${txCount} transactions`); riskScore += 10; }
+          if (isContract) { factors.push('Address is a smart contract'); riskScore += 20; }
+        }
+        
+        riskScore = Math.max(5, Math.min(95, riskScore));
+        
+        return {
+          address,
+          network,
+          balance_eth: balance,
+          transaction_count: txCount,
+          is_contract: isContract,
+          risk_score: riskScore,
+          risk_level: riskScore < 30 ? 'low' : riskScore < 60 ? 'medium' : 'high',
+          factors,
+          last_checked: new Date().toISOString(),
+          source: 'on-chain'
+        };
+      } catch (e) {
+        return {
+          address,
+          network,
+          risk_score: 50,
+          risk_level: 'medium',
+          factors: ['Unable to verify on-chain data', 'Manual review recommended'],
+          error: e.message,
+          source: 'fallback'
+        };
+      }
     }
     case 'gas-tracker': {
-      return {
-        network: body.network || 'ethereum',
-        slow: { gwei: 12, usd: 0.25 },
-        standard: { gwei: 24, usd: 0.50 },
-        fast: { gwei: 48, usd: 1.00 },
-        base_fee: 22.5
-      };
+      const network = body.network || 'ethereum';
+      try {
+        const rpcMap = {
+          ethereum: 'https://cloudflare-eth.com',
+          base: 'https://mainnet.base.org',
+          polygon: 'https://polygon-rpc.com'
+        };
+        const rpc = rpcMap[network] || rpcMap.ethereum;
+        const resp = await fetch(rpc, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_gasPrice', params: [] })
+        });
+        const data = await resp.json();
+        const gasPriceWei = parseInt(data.result || '0x0', 16);
+        const gasPriceGwei = gasPriceWei / 1e9;
+        
+        return {
+          network,
+          standard: { gwei: Math.round(gasPriceGwei * 100) / 100, wei: gasPriceWei },
+          slow: { gwei: Math.round(gasPriceGwei * 0.8 * 100) / 100 },
+          fast: { gwei: Math.round(gasPriceGwei * 1.2 * 100) / 100 },
+          base_fee: Math.round(gasPriceGwei * 100) / 100,
+          source: 'on-chain',
+          timestamp: new Date().toISOString()
+        };
+      } catch (e) {
+        return {
+          network,
+          slow: { gwei: 12 },
+          standard: { gwei: 24 },
+          fast: { gwei: 48 },
+          source: 'fallback'
+        };
+      }
     }
     case 'yield-calculator': {
       const principal = body.principal || 1000;
@@ -1151,6 +1278,252 @@ function getRails() {
       },
     ],
   };
+}
+
+function toMcpName(serviceId) {
+  return serviceId.replace(/-/g, '_');
+}
+
+function generateMcpInputSchema(serviceId) {
+  const meta = getMeta(serviceId);
+  return meta.inputSchema || { type: 'object', properties: {}, required: [] };
+}
+
+async function handleMcp(request, corsHeaders, origin) {
+  if (request.method === 'GET') {
+    return new Response(JSON.stringify({
+      name: 'afaagent-x402-suite',
+      version: '4.0.0',
+      description: '43 x402-enabled API tools — DeFi, wallet security, AI, developer tools. Pay-per-call USDC on Base.',
+      tools: Object.keys(PRICES).length,
+      transport: 'streamableHttp',
+      documentation: `${origin}/.well-known/x402`,
+    }), {
+      headers: { 'Content-Type': 'application/json; charset=utf-8', ...corsHeaders }
+    });
+  }
+
+  if (request.method === 'POST') {
+    let body;
+    try {
+      body = await request.json();
+    } catch (e) {
+      return json({ jsonrpc: '2.0', error: { code: -32700, message: 'Parse error' }, id: null }, { ...corsHeaders, status: 400 });
+    }
+
+    const { jsonrpc, method, params, id } = body;
+
+    if (jsonrpc !== '2.0') {
+      return json({ jsonrpc: '2.0', error: { code: -32600, message: 'Invalid Request' }, id }, { ...corsHeaders, status: 400 });
+    }
+
+    let result;
+    switch (method) {
+      case 'initialize':
+        result = {
+          protocolVersion: '2024-11-05',
+          capabilities: {
+            tools: {},
+          },
+          serverInfo: {
+            name: 'afaagent-x402-suite',
+            version: '4.0.0',
+          },
+        };
+        break;
+
+      case 'tools/list':
+        result = {
+          tools: Object.entries(PRICES).map(([id, p]) => ({
+            name: toMcpName(id),
+            description: `${p.desc} [Priced: $${p.amount} USDC via x402 — call /api/v1/${id} to pay and execute]`,
+            inputSchema: generateMcpInputSchema(id),
+          })),
+        };
+        break;
+
+      case 'tools/call': {
+        const toolName = params?.name;
+        const serviceId = toolName?.replace(/_/g, '-');
+        const service = PRICES[serviceId];
+
+        if (!service) {
+          return json({
+            jsonrpc: '2.0',
+            error: { code: -32602, message: `Tool ${toolName} not found` },
+            id,
+          }, { ...corsHeaders, status: 400 });
+        }
+
+        const meta = getMeta(serviceId);
+        return json({
+          jsonrpc: '2.0',
+          id,
+          result: {
+            content: [{
+              type: 'text',
+              text: `## Payment Required (x402 Protocol)\n\nThis tool costs **$${service.amount} USDC** on Base network.\n\n**To use it:**\n1. Send $${service.amount} USDC on Base to: \`${WALLET}\`\n2. Call the API directly: \`POST ${origin}/api/v1/${serviceId}\`\n3. Include header: \`X-Payment: <tx_hash>\`\n\n**Payment details:**\n- Network: Base (eip155:8453)\n- Token: USDC (${USDC_CONTRACT})\n- Amount: $${service.amount}\n- Pay to: ${WALLET}\n\n**Endpoint docs:** ${origin}/.well-known/x402\n\n\`\`\`json\n${JSON.stringify({ endpoint: serviceId, price: service.amount, wallet: WALLET, network: 'eip155:8453', input_example: meta.input, output_example: meta.output }, null, 2)}\n\`\`\``,
+            }],
+            isError: true,
+          },
+        }, corsHeaders);
+      }
+
+      case 'notifications/initialized':
+        return new Response(null, { status: 204, headers: corsHeaders });
+
+      default:
+        return json({
+          jsonrpc: '2.0',
+          error: { code: -32601, message: `Method ${method} not found` },
+          id,
+        }, { ...corsHeaders, status: 400 });
+    }
+
+    return json({ jsonrpc: '2.0', result, id }, corsHeaders);
+  }
+
+  return json({ error: 'Method not allowed' }, { ...corsHeaders, status: 405 });
+}
+
+function getLandingPage() {
+  const premium = Object.entries(PRICES).filter(([k,v]) => parseFloat(v.amount) >= 4.99);
+  const popular = Object.entries(PRICES).filter(([k,v]) => parseFloat(v.amount) >= 0.30 && parseFloat(v.amount) < 4.99);
+  const tools = Object.entries(PRICES).filter(([k,v]) => parseFloat(v.amount) < 0.30).slice(0, 12);
+  
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AfaAgent x402 API Suite — 43 APIs with Pay-Per-Call USDC Micropayments</title>
+<meta name="description" content="43 production-grade x402 APIs — DeFi, wallet security, AI/ML, developer tools. Pay-per-call via USDC on Base. MCP server included for Claude Desktop, Cursor, Cline.">
+<meta name="keywords" content="x402, API, micropayments, USDC, Base, DeFi, AI agents, MCP, pay-per-call, crypto, blockchain">
+<meta property="og:title" content="AfaAgent x402 API Suite — 43 APIs">
+<meta property="og:description" content="43 production-grade APIs with pay-per-call USDC micropayments on Base. MCP server included.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://afaagent-x402-api.storm-fly.workers.dev">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f172a;color:#e2e8f0;line-height:1.6}
+.hero{text-align:center;padding:80px 20px 60px;background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%)}
+.hero h1{font-size:2.8rem;font-weight:800;background:linear-gradient(135deg,#10b981,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:16px}
+.hero p{font-size:1.2rem;color:#94a3b8;max-width:700px;margin:0 auto 30px}
+.badges{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:24px}
+.badge{background:#1e293b;border:1px solid #334155;padding:6px 14px;border-radius:20px;font-size:0.85rem;color:#94a3b8}
+.badge strong{color:#10b981}
+.section{max-width:1100px;margin:0 auto;padding:40px 20px}
+.section h2{font-size:1.8rem;margin-bottom:24px;color:#f1f5f9}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+.card{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px;transition:border-color 0.2s}
+.card:hover{border-color:#10b981}
+.card .name{font-weight:700;color:#10b981;font-size:1rem;margin-bottom:4px}
+.card .desc{color:#94a3b8;font-size:0.9rem;margin-bottom:8px}
+.card .price{display:inline-block;background:#312e81;color:#a5b4fc;padding:2px 10px;border-radius:12px;font-size:0.8rem;font-weight:600}
+.card .price.high{background:#7c2d12;color:#fed7aa}
+.tag{display:inline-block;background:#1e3a5f;color:#7dd3fc;padding:2px 8px;border-radius:8px;font-size:0.75rem;margin:2px}
+.code{background:#0f172a;border:1px solid #334155;border-radius:8px;padding:16px;overflow-x:auto;font-family:'Fira Code',monospace;font-size:0.85rem;color:#a5b4fc;margin:16px 0}
+.code .c{color:#64748b}
+.footer{text-align:center;padding:40px 20px;color:#64748b;font-size:0.85rem;border-top:1px solid #1e293b;margin-top:40px}
+.footer a{color:#10b981;text-decoration:none}
+.links{display:flex;gap:20px;justify-content:center;margin:20px 0}
+.links a{color:#3b82f6;text-decoration:none;font-size:0.9rem}
+.links a:hover{text-decoration:underline}
+.stats{display:flex;gap:40px;justify-content:center;margin:30px 0}
+.stat{text-align:center}
+.stat .num{font-size:2rem;font-weight:800;color:#10b981}
+.stat .label{font-size:0.85rem;color:#64748b}
+</style>
+</head>
+<body>
+<div class="hero">
+<h1>AfaAgent x402 API Suite</h1>
+<p>43 production-grade APIs with pay-per-call USDC micropayments on Base. Built for AI agents, autonomous systems, and developers.</p>
+<div class="badges">
+<span class="badge"><strong>x402 v2</strong> Compliant</span>
+<span class="badge"><strong>MCP</strong> Server</span>
+<span class="badge"><strong>Base</strong> Network</span>
+<span class="badge"><strong>USDC</strong> Payments</span>
+<span class="badge"><strong>Cloudflare</strong> Edge</span>
+</div>
+</div>
+
+<div class="stats">
+<div class="stat"><div class="num">43</div><div class="label">API Endpoints</div></div>
+<div class="stat"><div class="num">7</div><div class="label">Categories</div></div>
+<div class="stat"><div class="num">100K</div><div class="label">Req/day Free</div></div>
+<div class="stat"><div class="num">&lt;50ms</div><div class="label">Latency</div></div>
+</div>
+
+<div class="section">
+<h2>🔥 Premium Services</h2>
+<div class="grid">
+${premium.map(([k,v]) => `<div class="card"><div class="name">/${k}</div><div class="desc">${v.desc}</div><span class="price high">$${v.amount}/call</span></div>`).join('')}
+</div>
+</div>
+
+<div class="section">
+<h2>💎 Popular Services</h2>
+<div class="grid">
+${popular.map(([k,v]) => `<div class="card"><div class="name">/${k}</div><div class="desc">${v.desc}</div><span class="price">$${v.amount}/call</span></div>`).join('')}
+</div>
+</div>
+
+<div class="section">
+<h2>🔧 Developer Tools</h2>
+<div class="grid">
+${tools.map(([k,v]) => `<div class="card"><div class="name">/${k}</div><div class="desc">${v.desc}</div><span class="price">$${v.amount}/call</span></div>`).join('')}
+</div>
+</div>
+
+<div class="section">
+<h2>Quick Start</h2>
+<div class="code"><span class="c"># Try any endpoint — get 402 Payment Required</span>
+curl -X POST https://afaagent-x402-api.storm-fly.workers.dev/api/v1/wallet-risk \\
+  -H "Content-Type: application/json" \\
+  -d '{"address":"0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"}'
+
+<span class="c"># Response includes x402 v2 payment details:</span>
+<span class="c"># { "x402Version": 2, "accepts": [{ "amount": "850000", "payTo": "0x7B84..." }] }</span></div>
+
+<h2>MCP Integration</h2>
+<p style="color:#94a3b8;margin-bottom:12px">Add to Claude Desktop, Cursor, or any MCP client:</p>
+<div class="code">{
+  "mcpServers": {
+    "afaagent-x402": {
+      "transport": "streamableHttp",
+      "url": "https://afaagent-x402-api.storm-fly.workers.dev/mcp"
+    }
+  }
+}</div>
+</div>
+
+<div class="section">
+<h2>Payment Details</h2>
+<div class="card">
+<div class="name">Network: Base (eip155:8453)</div>
+<div class="desc">Token: USDC (0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913)</div>
+<div class="desc">Wallet: 0x7B8401b5B4ee319aa47DC5F12b869e5Be460A9B2</div>
+<div class="desc">Protocol: x402 v2 — HTTP 402 Payment Required</div>
+</div>
+</div>
+
+<div class="links">
+<a href="/.well-known/x402">Discovery</a>
+<a href="/openapi.json">OpenAPI</a>
+<a href="/llms.txt">LLMs.txt</a>
+<a href="/agents.json">Agents.json</a>
+<a href="/mcp">MCP Server</a>
+<a href="https://github.com/AfaAgent/x402-api-suite">GitHub</a>
+</div>
+
+<div class="footer">
+<p>AfaAgent x402 API Suite — <a href="https://github.com/AfaAgent/x402-api-suite">github.com/AfaAgent/x402-api-suite</a></p>
+<p>MIT License · Powered by Cloudflare Workers · x402 Protocol</p>
+</div>
+</body>
+</html>`;
 }
 
 function getWellKnown() {
