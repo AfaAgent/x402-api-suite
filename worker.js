@@ -829,11 +829,23 @@ async function processEndpoint(endpoint, body) {
       const amount = body.amount || 1;
       const from = body.from || 'USD';
       const to = body.to || 'EUR';
-      const rates = { USD: 1, EUR: 0.92, GBP: 0.79, JPY: 149.5, CHF: 0.88, CAD: 1.36, AUD: 1.52, CNY: 7.24, RUB: 92.5, INR: 83.2 };
-      const fromRate = rates[from] || 1;
-      const toRate = rates[to] || 1;
+      try {
+        const resp = await fetch(`https://api.coinbase.com/v2/exchange-rates?currency=${from}`, {
+          headers: { 'User-Agent': 'AfaAgent-x402/1.0' }
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          const rate = parseFloat(data.data.rates[to]);
+          if (rate) {
+            return { amount, from, to, result: (amount * rate).toFixed(4), rate: rate.toFixed(6), source: 'coinbase', last_updated: new Date().toISOString() };
+          }
+        }
+      } catch (e) {}
+      const fallbackRates = { USD: 1, EUR: 0.92, GBP: 0.79, JPY: 149.5, CHF: 0.88, CAD: 1.36, AUD: 1.52, CNY: 7.24, RUB: 92.5, INR: 83.2 };
+      const fromRate = fallbackRates[from] || 1;
+      const toRate = fallbackRates[to] || 1;
       const result = amount * (toRate / fromRate);
-      return { amount, from, to, result: result.toFixed(4), rate: (toRate / fromRate).toFixed(6), last_updated: new Date().toISOString() };
+      return { amount, from, to, result: result.toFixed(4), rate: (toRate / fromRate).toFixed(6), source: 'fallback', last_updated: new Date().toISOString() };
     }
     case 'favicon-generator': {
       const text = (body.text || 'AA').toUpperCase().substr(0, 2);
@@ -1065,19 +1077,66 @@ async function processEndpoint(endpoint, body) {
     }
     case 'portfolio-tracker': {
       const address = body.address || '0x0000000000000000000000000000000000000000';
-      return {
-        address,
-        chain: body.chain || 'ethereum',
-        total_value_usd: 25432.50,
-        total_profit_usd: 3421.18,
-        total_profit_pct: 15.54,
-        tokens: [
-          { symbol: 'ETH', balance: 5.2, value_usd: 17790.14, pnl_pct: 22.3 },
-          { symbol: 'USDC', balance: 5000, value_usd: 5000, pnl_pct: 0.0 },
-          { symbol: 'SOL', balance: 25, value_usd: 3564.00, pnl_pct: -5.2 },
-        ],
-        last_updated: new Date().toISOString()
-      };
+      const chain = body.chain || 'ethereum';
+      try {
+        const rpcMap = { ethereum: 'https://1rpc.io/eth', base: 'https://1rpc.io/base', polygon: 'https://1rpc.io/matic' };
+        const rpc = rpcMap[chain] || rpcMap.ethereum;
+        
+        // Get ETH balance
+        const balResp = await fetch(rpc, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'User-Agent': 'AfaAgent-x402/1.0' },
+          body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getBalance', params: [address, 'latest'] })
+        });
+        const balData = await balResp.json();
+        const ethBalance = parseInt(balData.result || '0x0', 16) / 1e18;
+        
+        // Get ETH price from Coinbase
+        let ethPrice = 0;
+        try {
+          const priceResp = await fetch('https://api.coinbase.com/v2/prices/ETH-USD/spot', {
+            headers: { 'User-Agent': 'AfaAgent-x402/1.0' }
+          });
+          if (priceResp.ok) {
+            const priceData = await priceResp.json();
+            ethPrice = parseFloat(priceData.data.amount);
+          }
+        } catch (e) {}
+        
+        const ethValue = ethBalance * ethPrice;
+        
+        // Get tx count
+        const txResp = await fetch(rpc, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'User-Agent': 'AfaAgent-x402/1.0' },
+          body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'eth_getTransactionCount', params: [address, 'latest'] })
+        });
+        const txData = await txResp.json();
+        const txCount = parseInt(txData.result || '0x0', 16);
+        
+        return {
+          address,
+          chain,
+          eth_balance: ethBalance,
+          eth_price_usd: ethPrice,
+          eth_value_usd: ethValue,
+          total_value_usd: ethValue,
+          transaction_count: txCount,
+          tokens: ethBalance > 0 ? [{ symbol: 'ETH', balance: ethBalance, value_usd: ethValue }] : [],
+          source: 'on-chain',
+          last_updated: new Date().toISOString()
+        };
+      } catch (e) {
+        return {
+          address,
+          chain,
+          total_value_usd: 0,
+          tokens: [],
+          source: 'fallback',
+          error: e.message,
+          last_updated: new Date().toISOString()
+        };
+      }
     }
     case 'nft-metadata': {
       return {
