@@ -1,0 +1,5 @@
+Vercel CLI 57.0.0 (Node.js 22.23.1)
+> 
+  Visit https://vercel.com/oauth/device?user_code=XZRN-RGFW
+
+Waiting for authentication...

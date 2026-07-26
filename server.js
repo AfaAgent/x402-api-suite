@@ -7,7 +7,7 @@ const app = express();
 app.use(cors());
 app.use(json({ limit: '1mb' }));
 
-const WALLET = '0x0c1fa40d4600081270c931811587d68af18b0b94';
+const WALLET = '0x7B8401b5B4ee319aa47DC5F12b869e5Be460A9B2';
 
 const prices = createPricing({
   'summarize': { amount: '0.05', desc: 'Text summarization — concise summary of any text' },
@@ -114,7 +114,7 @@ app.get('/openapi.json', (req, res) => {
       version: '4.0.0',
       contact: { name: 'AfaAgent', url: 'https://github.com/AfaAgent' },
     },
-    servers: [{ url: 'https://afaagent-x402.loca.lt', description: 'Production' }],
+    servers: [{ url: 'https://smooth-fox-5.loca.lt', description: 'Production' }],
     tags: [
       { name: 'blockchain-web3', description: 'Crypto, DeFi, wallet security, blockchain tools' },
       { name: 'ai-ml', description: 'AI-powered text analysis and generation' },

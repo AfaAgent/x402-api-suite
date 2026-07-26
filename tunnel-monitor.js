@@ -13,7 +13,7 @@ const CONFIG = {
   healthCheck: {
     interval: 30000,
     timeout: 10000,
-    path: '/api/v1/health'
+    path: '/health'
   },
   statusFile: path.join(__dirname, 'tunnel-status.json')
 };

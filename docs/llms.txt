@@ -7,7 +7,7 @@ A collection of 43 production APIs that AI agents can call and pay for per-reque
 ## Base URL
 
 ```
-https://fresh-sloth-0.loca.lt
+https://smooth-fox-5.loca.lt
 ```
 
 ## Payment Protocol
@@ -20,7 +20,7 @@ All `/api/v1/*` endpoints require x402 payment:
 
 Network: Base (eip155:8453)
 Asset: USDC
-Wallet: 0x0c1fa40d4600081270c931811587d68af18b0b94
+Wallet: 0x7B8401b5B4ee319aa47DC5F12b869e5Be460A9B2
 
 ## All 43 Endpoints
 
