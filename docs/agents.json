@@ -1,0 +1,90 @@
+{
+  "schema_version": "1.0",
+  "name": "AfaAgent API Suite",
+  "version": "4.0.0",
+  "description": "43 production-grade APIs across DeFi, wallet security, AI tools, developer utilities, SEO, and crypto analytics. All pay-per-call USDC on Base via x402 protocol.",
+  "author": {
+    "name": "AfaAgent",
+    "url": "https://github.com/AfaAgent"
+  },
+  "url": "https://afaagent.github.io/x402-api-suite/",
+  "documentation_url": "https://afaagent.github.io/x402-api-suite/",
+  "x402_discovery": "/.well-known/x402",
+  "openapi_url": "/openapi.json",
+  "llms_doc_url": "/llms.txt",
+  "categories": [
+    "blockchain",
+    "crypto",
+    "defi",
+    "wallet-security",
+    "ai-tools",
+    "developer-tools",
+    "seo",
+    "marketing",
+    "productivity",
+    "data-analytics"
+  ],
+  "tags": [
+    "x402",
+    "micropayments",
+    "usdc",
+    "base",
+    "ethereum",
+    "solana",
+    "polygon",
+    "api",
+    "pay-per-use",
+    "mcp",
+    "ai-agents",
+    "autonomous",
+    "smart-contract-audit",
+    "rug-detection",
+    "portfolio-tracker",
+    "yield-farming",
+    "degi-strategy",
+    "nft",
+    "gas-tracker",
+    "wallet-risk"
+  ],
+  "pricing": {
+    "model": "pay-per-call",
+    "currency": "USDC",
+    "network": "Base",
+    "min_price": "0.01",
+    "max_price": "19.99",
+    "tiers": [
+      { "name": "Utility", "range": "$0.01-$0.10", "count": 28 },
+      { "name": "Standard", "range": "$0.10-$1.00", "count": 10 },
+      { "name": "Premium", "range": "$4.99-$19.99", "count": 5 }
+    ]
+  },
+  "capabilities": {
+    "total_endpoints": 43,
+    "blockchain_web3": 12,
+    "finance_premium": 3,
+    "ai_ml": 6,
+    "content_marketing": 4,
+    "developer_tools": 18
+  },
+  "top_endpoints": [
+    { "id": "wallet-risk", "price": "0.85", "category": "security" },
+    { "id": "portfolio-tracker", "price": "0.99", "category": "finance" },
+    { "id": "smart-contract-audit", "price": "9.99", "category": "security" },
+    { "id": "defi-strategy", "price": "19.99", "category": "defi" },
+    { "id": "rug-detect", "price": "4.99", "category": "security" }
+  ],
+  "mcp": {
+    "available": true,
+    "server_url": "https://github.com/AfaAgent/x402-api-suite/tree/main/x402-mcp-server",
+    "tools_count": 43
+  },
+  "authentication": {
+    "type": "none",
+    "payment_protocol": "x402",
+    "payment_standard": "EIP-3009"
+  },
+  "rate_limiting": {
+    "free": "10 requests/minute",
+    "paid": "100 requests/minute"
+  }
+}
