@@ -1,0 +1,95 @@
+# AfaAgent API Suite — LLM-Friendly Documentation
+
+## What is this?
+
+A collection of 43 production APIs that AI agents can call and pay for per-request using the x402 protocol (USDC on Base). No API keys needed.
+
+## Base URL
+
+```
+https://YOUR_GATEWAY_URL
+```
+
+## Payment Protocol
+
+All `/api/v1/*` endpoints require x402 payment:
+1. Send a POST request without payment
+2. Receive HTTP 402 with payment requirements
+3. Sign and send USDC payment via EIP-3009
+4. Retry request with `X-Payment` header
+
+Network: Base (eip155:8453)
+Asset: USDC
+Wallet: 0x0c1fa40d4600081270c931811587d68af18b0b94
+
+## All 43 Endpoints
+
+### Premium ($4.99-$19.99)
+
+1. **defi-strategy** ($19.99) - Personalized DeFi yield farming strategy
+2. **portfolio-rebalancer** ($14.99) - Optimal portfolio rebalancing
+3. **smart-contract-audit** ($9.99) - Smart contract vulnerability scan
+4. **token-launch-analysis** ($7.99) - Tokenomics & launch evaluation
+5. **rug-detect** ($4.99) - Rug pull risk detection
+
+### High-Value ($0.50-$0.99)
+
+6. **portfolio-tracker** ($0.99) - Wallet portfolio analysis
+7. **swap-routing** ($0.99) - DEX best price routing
+8. **wallet-risk** ($0.85) - Wallet security risk score
+9. **transaction-simulator** ($0.85) - Transaction outcome simulation
+10. **yield-calculator** ($0.50) - DeFi yield calculations
+
+### Standard ($0.10-$0.30)
+
+11. **token-screener** ($0.30) - Token risk & fundamentals
+12. **nft-metadata** ($0.30) - NFT metadata validation
+13. **seo-meta** ($0.15) - SEO meta tag generator
+14. **entity-extractor** ($0.12) - Named entity recognition
+15. **gas-estimator** ($0.20) - Transaction gas cost in USD
+16. **text-rewrite** ($0.10) - Text paraphrasing
+17. **regex-builder** ($0.10) - Regex generation & testing
+18. **headline-generator** ($0.08) - Catchy headline generation
+
+### Utility ($0.01-$0.05)
+
+19. **crypto-prices** ($0.05) - Real-time crypto prices
+20. **summarize** ($0.05) - Text summarization
+21. **text-complexity** ($0.05) - Readability scoring
+22. **diff-checker** ($0.05) - Text comparison
+23. **currency-converter** ($0.05) - Fiat exchange rates
+24. **json-schema-validator** ($0.05) - JSON schema validation
+25. **sentiment** ($0.03) - Sentiment analysis
+26. **keyword-extractor** ($0.03) - Keyword extraction
+27. **gas-tracker** ($0.03) - Gas price tracking
+28. **hash-generator** ($0.03) - Hash generation
+29. **ip-geolocation** ($0.03) - IP geolocation
+30. **favicon-generator** ($0.03) - Favicon SVG generator
+31. **domains-available** ($0.04) - Domain availability check
+32. **markdown-summary** ($0.04) - Markdown structure extraction
+33. **language-detect** ($0.02) - Language detection
+34. **qrcode** ($0.02) - QR code generation
+35. **password-strength** ($0.02) - Password strength analysis
+36. **markdown-to-html** ($0.02) - Markdown to HTML
+37. **color-palette** ($0.02) - Color palette generation
+38. **timestamp-converter** ($0.02) - Timestamp conversion
+39. **user-agent-parser** ($0.02) - UA string parsing
+40. **json-format** ($0.01) - JSON formatting
+41. **base64-encode** ($0.01) - Base64 encoding
+42. **uuid-generator** ($0.01) - UUID generation
+43. **url-shortener** ($0.01) - URL shortening
+
+## Usage Pattern
+
+For any endpoint:
+```json
+POST /api/v1/{endpoint_id}
+Content-Type: application/json
+
+{ endpoint-specific parameters }
+```
+
+## Discovery
+
+- `.well-known/x402` - Full service catalog with pricing
+- `openapi.json` - OpenAPI 3.1 specification
