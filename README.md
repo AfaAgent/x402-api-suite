@@ -6,21 +6,21 @@ Built for AI agents, autonomous systems, and developers who need instant API acc
 
 ## Live Endpoint
 
-**Base URL**: `https://afaagent-x402-api.brazen-rotate.workers.dev`
+**Base URL**: `https://afaagent-x402.loca.lt`
 
-**Status**: [https://afaagent-x402-api.brazen-rotate.workers.dev/health](https://afaagent-x402-api.brazen-rotate.workers.dev/health)
+**Status**: [https://afaagent-x402.loca.lt/health](https://afaagent-x402.loca.lt/health)
 
 ## Quick Start
 
 ```bash
 # 1. Try any endpoint (returns 402 with payment details)
-curl -X POST https://afaagent-x402-api.brazen-rotate.workers.dev/api/v1/wallet-risk \
+curl -X POST https://afaagent-x402.loca.lt/api/v1/wallet-risk \
   -H "Content-Type: application/json" \
   -d '{"address":"0x742d35Cc6634C0532925a3b844Bc9e7595f7AAA0"}'
 
 # 2. Pay the USDC amount on Base to the wallet shown
 # 3. Resend with the X-Payment header
-curl -X POST https://afaagent-x402-api.brazen-rotate.workers.dev/api/v1/wallet-risk \
+curl -X POST https://afaagent-x402.loca.lt/api/v1/wallet-risk \
   -H "Content-Type: application/json" \
   -H "X-Payment: <tx_hash>" \
   -d '{"address":"0x742d35Cc6634C0532925a3b844Bc9e7595f7AAA0"}'
@@ -74,7 +74,7 @@ Use as an MCP server in Claude Desktop, Cursor, Cline, or any MCP-compatible age
   "mcpServers": {
     "afaagent-x402": {
       "transport": "streamableHttp",
-      "url": "https://afaagent-x402-api.brazen-rotate.workers.dev/mcp"
+      "url": "https://afaagent-x402.loca.lt/mcp"
     }
   }
 }
