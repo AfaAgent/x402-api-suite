@@ -4,25 +4,38 @@
 
 Built for AI agents, autonomous systems, and developers who need instant API access without subscriptions or API keys.
 
-## ✨ Features
+## Live Endpoint
 
-- **43 endpoints** across 7 categories
-- **x402 v2 compliant** — instant payment, no accounts, no API keys
-- **MCP server** — use directly from Claude Desktop, Cursor, Cline
-- **Global edge deployment** on Cloudflare Workers — < 50ms latency
-- **OpenAPI 3.0 spec** with `x-payment-info` extensions
-- **AI-agent optimized** — `llms.txt`, `agents.json`, `.well-known/x402`
+**Base URL**: `https://afaagent-x402-api.brazen-rotate.workers.dev`
 
-## 📊 Service Categories
+**Status**: [https://afaagent-x402-api.brazen-rotate.workers.dev/health](https://afaagent-x402-api.brazen-rotate.workers.dev/health)
+
+## Quick Start
+
+```bash
+# 1. Try any endpoint (returns 402 with payment details)
+curl -X POST https://afaagent-x402-api.brazen-rotate.workers.dev/api/v1/wallet-risk \
+  -H "Content-Type: application/json" \
+  -d '{"address":"0x742d35Cc6634C0532925a3b844Bc9e7595f7AAA0"}'
+
+# 2. Pay the USDC amount on Base to the wallet shown
+# 3. Resend with the X-Payment header
+curl -X POST https://afaagent-x402-api.brazen-rotate.workers.dev/api/v1/wallet-risk \
+  -H "Content-Type: application/json" \
+  -H "X-Payment: <tx_hash>" \
+  -d '{"address":"0x742d35Cc6634C0532925a3b844Bc9e7595f7AAA0"}'
+```
+
+## Service Categories (43 services)
 
 | Category | Services | Price Range |
 |---|---|---|
-| 🔗 Blockchain & DeFi | 16 | $0.03 — $19.99 |
-| 🤖 AI & ML Tools | 9 | $0.02 — $0.15 |
-| 🔧 Developer Tools | 14 | $0.01 — $0.10 |
-| 📈 Marketing & SEO | 4 | $0.08 — $0.15 |
+| Blockchain & DeFi | 16 | $0.03 — $19.99 |
+| AI & ML Tools | 9 | $0.02 — $0.15 |
+| Developer Tools | 14 | $0.01 — $0.10 |
+| Marketing & SEO | 4 | $0.08 — $0.15 |
 
-### 🔥 Premium Services (High-Margin)
+### Premium Services (High-Margin)
 
 | Service | Price | Description |
 |---|---|---|
@@ -32,61 +45,27 @@ Built for AI agents, autonomous systems, and developers who need instant API acc
 | `token-launch-analysis` | $7.99 | Evaluate tokenomics, team, risks, and potential |
 | `rug-detect` | $4.99 | Rug pull detector — analyze any token for scam risk |
 
-## 🚀 Quick Start
+### Popular Services
 
-### Base URL
-```
-https://afaagent-x402-api.storm-fly.workers.dev
-```
+| Service | Price | Description |
+|---|---|---|
+| `wallet-risk` | $0.85 | Security analysis for any EVM address |
+| `transaction-simulator` | $0.85 | Predict transaction outcome before signing |
+| `swap-routing` | $0.99 | Find best DEX swap price across DEXes |
+| `portfolio-tracker` | $0.99 | Balance & P&L for any wallet |
+| `yield-calculator` | $0.50 | DeFi yield calculator — APY/APR |
+| `token-screener` | $0.30 | Risk & fundamentals for any ERC20 |
 
-### Try it
-```bash
-curl -X POST https://afaagent-x402-api.storm-fly.workers.dev/api/v1/wallet-risk \
-  -H "Content-Type: application/json" \
-  -d '{"address":"0x742d35Cc6634C0532925a3b844Bc9e7595f7AAA0"}'
-```
-Returns `402 Payment Required` with payment details.
+## Discovery Endpoints (Machine-Readable Marketing)
 
-### How it works
-1. Send a POST request to any endpoint
-2. Receive `402 Payment Required` with USDC payment details
-3. Send the specified USDC amount on Base to the wallet address
-4. Resend the request with `X-Payment: <tx_hash>` header
-
-## 🏗️ Architecture
-
-```
-┌─────────────────────────────────────────────────────┐
-│                   Client / AI Agent                  │
-└──────────────────────┬──────────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────────┐
-│              Cloudflare Worker (Edge)                │
-│  • 43 API endpoints                                  │
-│  • x402 v2 payment middleware                        │
-│  • MCP server (/mcp)                                 │
-│  • OpenAPI spec + discovery docs                     │
-└─────────────────────────────────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────────┐
-│              Blockchain (Base / USDC)                 │
-│  • On-chain payment verification                      │
-│  • USDC ERC-20 token                                  │
-└─────────────────────────────────────────────────────┘
-```
-
-## 📡 Discovery Endpoints
-
-- `/.well-known/x402` — x402 service discovery
-- `/openapi.json` — OpenAPI 3.0 spec with payment info
-- `/llms.txt` — LLM-friendly API documentation
-- `/agents.json` — AI agent manifest
-- `/mcp` — MCP server endpoint (Streamable HTTP)
+- `/.well-known/x402` — x402 service discovery (RFC-style)
+- `/openapi.json` — OpenAPI 3.0 spec with `x-payment-info` extensions
+- `/llms.txt` — LLM-friendly API documentation (for AI agents)
+- `/agents.json` — AI agent manifest (ERC-8004 style)
+- `/mcp` — MCP server endpoint (Streamable HTTP transport)
 - `/health` — Health check
 
-## 🧩 MCP Integration
+## MCP Integration
 
 Use as an MCP server in Claude Desktop, Cursor, Cline, or any MCP-compatible agent:
 
@@ -95,7 +74,7 @@ Use as an MCP server in Claude Desktop, Cursor, Cline, or any MCP-compatible age
   "mcpServers": {
     "afaagent-x402": {
       "transport": "streamableHttp",
-      "url": "https://afaagent-x402-api.storm-fly.workers.dev/mcp"
+      "url": "https://afaagent-x402-api.brazen-rotate.workers.dev/mcp"
     }
   }
 }
@@ -103,46 +82,59 @@ Use as an MCP server in Claude Desktop, Cursor, Cline, or any MCP-compatible age
 
 All 43 tools are available as MCP tools with inline pricing info.
 
-## 💰 Payment Details
+## Payment Details
 
 - **Network**: Base (eip155:8453)
 - **Token**: USDC (`0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`)
 - **Wallet**: `0x7B8401b5B4ee319aa47DC5F12b869e5Be460A9B2`
 - **Decimals**: 6
+- **Facilitator**: Coinbase CDP (x402 v2)
 
-## 🛠️ Development
+## Architecture
+
+```
+Client / AI Agent
+   │
+   ▼ POST /api/v1/{service}
+Cloudflare Worker (Global Edge, <50ms)
+   │
+   ├─► 402 Payment Required (x402 v2)
+   │      {amount, payTo, asset, network}
+   │
+   ├─► Client pays USDC on Base
+   │
+   └─► POST /api/v1/{service} + X-Payment: <tx_hash>
+         │
+         ▼
+      Coinbase CDP verifies payment
+         │
+         ▼
+      JSON result returned
+```
+
+## Listed In
+
+- [x402Scout](https://x402scan.com) — x402 service directory
+- [Agent402](https://agent402.app) — AI agent marketplace
+- [mcp.so](https://mcp.so) — MCP server directory
+- [Glama](https://glama.ai/mcp/servers) — MCP server registry
+- [awesome-mcp-servers](https://github.com/punkpeye/awesome-mcp-servers) (PR pending)
+- [awesome-x402](https://github.com/afaagent/awesome-x402)
+- [awesome-x402-servers](https://github.com/afaagent/awesome-x402-servers)
+
+## Development
 
 ```bash
 # Install dependencies
 npm install
 
-# Run local server
+# Run local server (port 3000)
 npm start
 
 # Deploy to Cloudflare Workers
-npx wrangler deploy
+npx wrangler deploy --temporary
 ```
 
-## 📁 Project Structure
-
-```
-x402-api-services/
-├── server.js          # Express server (local dev)
-├── worker.js          # Cloudflare Worker (production)
-├── service-meta.js    # Service metadata (schemas, examples)
-├── wrangler.toml      # Cloudflare Workers config
-├── register-x402scan.js  # x402scan registration script
-├── check-balance.js   # Wallet balance checker
-├── generate-service.js # Service generator CLI
-└── docs/              # GitHub Pages static files
-```
-
-## 🤝 Contact
-
-- **Author**: AfaAgent
-- **GitHub**: [@AfaAgent](https://github.com/AfaAgent)
-- **Wallet**: `0x7B8401b5B4ee319aa47DC5F12b869e5Be460A9B2`
-
-## 📜 License
+## License
 
 MIT

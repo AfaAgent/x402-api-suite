@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AfaAgent x402 API Suite — 43 APIs with Pay-Per-Call USDC Micropayments</title>
+<meta name="description" content="43 production-grade x402 APIs — DeFi, wallet security, AI/ML, developer tools. Pay-per-call via USDC on Base. MCP server included for Claude Desktop, Cursor, Cline.">
+<meta name="keywords" content="x402, API, micropayments, USDC, Base, DeFi, AI agents, MCP, pay-per-call, crypto, blockchain, ERC-8004">
+<meta name="robots" content="index, follow">
+<meta name="author" content="AfaAgent">
+<link rel="canonical" href="https://afaagent-x402-api.brazen-rotate.workers.dev/">
+<link rel="x402-discovery" href="https://afaagent-x402-api.brazen-rotate.workers.dev/.well-known/x402">
+<link rel="service-desc" href="https://afaagent-x402-api.brazen-rotate.workers.dev/openapi.json">
+<link rel="llms-txt" href="https://afaagent-x402-api.brazen-rotate.workers.dev/llms.txt">
+<link rel="mcp" href="https://afaagent-x402-api.brazen-rotate.workers.dev/mcp">
+<meta http-equiv="refresh" content="0; url=https://afaagent-x402-api.brazen-rotate.workers.dev/">
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:800px;margin:40px auto;padding:0 20px;color:#1a1a1a}
+h1{color:#10b981}
+a{color:#3b82f6;text-decoration:none}
+a:hover{text-decoration:underline}
+.redirect{padding:20px;background:#f0fdf4;border:1px solid #10b981;border-radius:8px;margin:20px 0}
+.redirect a{font-weight:bold;font-size:1.2em}
+.endpoints{margin-top:30px}
+.endpoints li{margin:8px 0;font-family:monospace}
+.endpoints a{color:#3b82f6}
+code{background:#f3f4f6;padding:2px 6px;border-radius:3px;font-size:0.9em}
+</style>
+</head>
+<body>
+<h1>AfaAgent x402 API Suite</h1>
+<p><strong>43 production-grade APIs</strong> with pay-per-call USDC micropayments on Base. Built for AI agents, autonomous systems, and developers.</p>
+
+<div class="redirect">
+  <p>Live API endpoint:</p>
+  <p><a href="https://afaagent-x402-api.brazen-rotate.workers.dev/">https://afaagent-x402-api.brazen-rotate.workers.dev</a></p>
+  <p style="margin-top:10px;font-size:0.9em;color:#666">You will be redirected automatically. If not, click the link above.</p>
+</div>
+
+<h2>Quick Test</h2>
+<pre><code>curl -X POST https://afaagent-x402-api.brazen-rotate.workers.dev/api/v1/wallet-risk \
+  -H "Content-Type: application/json" \
+  -d '{"address":"0x742d35Cc6634C0532925a3b844Bc9e7595f7AAA0"}'</code></pre>
+<p>Returns <code>402 Payment Required</code> with x402 v2 payment details.</p>
+
+<h2>Discovery Endpoints</h2>
+<ul class="endpoints">
+  <li><a href="https://afaagent-x402-api.brazen-rotate.workers.dev/.well-known/x402">/.well-known/x402</a> — x402 service discovery</li>
+  <li><a href="https://afaagent-x402-api.brazen-rotate.workers.dev/openapi.json">/openapi.json</a> — OpenAPI 3.0 spec</li>
+  <li><a href="https://afaagent-x402-api.brazen-rotate.workers.dev/llms.txt">/llms.txt</a> — LLM-friendly docs</li>
+  <li><a href="https://afaagent-x402-api.brazen-rotate.workers.dev/agents.json">/agents.json</a> — AI agent manifest</li>
+  <li><a href="https://afaagent-x402-api.brazen-rotate.workers.dev/mcp">/mcp</a> — MCP server (Streamable HTTP)</li>
+  <li><a href="https://afaagent-x402-api.brazen-rotate.workers.dev/health">/health</a> — Health check</li>
+</ul>
+
+<h2>Payment</h2>
+<p><strong>Network:</strong> Base (eip155:8453)<br>
+<strong>Token:</strong> USDC<br>
+<strong>Wallet:</strong> <code>0x7B8401b5B4ee319aa47DC5F12b869e5Be460A9B2</code></p>
+
+<h2>MCP Integration</h2>
+<pre><code>{
+  "mcpServers": {
+    "afaagent-x402": {
+      "transport": "streamableHttp",
+      "url": "https://afaagent-x402-api.brazen-rotate.workers.dev/mcp"
+    }
+  }
+}</code></pre>
+
+<p style="margin-top:40px;color:#666;font-size:0.9em">Built by <a href="https://github.com/AfaAgent">AfaAgent</a> · <a href="https://github.com/AfaAgent/x402-api-suite">Source on GitHub</a></p>
+</body>
+</html>
